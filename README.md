@@ -1,5 +1,7 @@
 <div align="center">
 
+![GWTree](image.png)
+
 # GWTree
 
 **Git worktree manager for parallel development**
