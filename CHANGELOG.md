@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2025-11-14
+
+### Added
+- ✅ Comprehensive Vitest test suite with 88.7% coverage
+- 📊 Coverage reporting with V8 provider
+- 🧪 34 passing tests across all features
+- 📈 Coverage badges in README (flat square style)
+- 🎯 Test coverage for config, create, list, remove commands
+- 🔧 Vitest configuration with multiple reporters
+- 📝 Test scripts: `test`, `test:coverage`, `test:ui`
+
+### Improved
+- 🛡️ Better code reliability with comprehensive tests
+- 📚 Enhanced documentation with coverage metrics
+- 🔍 Better error handling validation through tests
+
 ## [1.0.0] - 2025-11-14
 
 ### Added
@@ -32,4 +48,5 @@ All notable changes to this project will be documented in this file.
 - Default editor (code/default/none)
 - Name pattern template
 
+[1.1.0]: https://github.com/ahmadawais/gwtree/releases/tag/v1.1.0
 [1.0.0]: https://github.com/ahmadawais/gwtree/releases/tag/1.0.0
