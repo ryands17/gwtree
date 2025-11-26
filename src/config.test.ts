@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { getConfig, setConfig, resetConfig, config } from './config.js';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { config, getConfig, resetConfig, setConfig } from './config.js';
 
 describe('config', () => {
   beforeEach(() => {
@@ -18,7 +18,7 @@ describe('config', () => {
         defaultSuffix: '1',
         defaultOpenEditor: true,
         defaultEditor: 'code',
-        namePattern: '{repo}-{branch}-wt-{suffix}'
+        namePattern: '{repo}-{branch}-wt-{suffix}',
       });
     });
 

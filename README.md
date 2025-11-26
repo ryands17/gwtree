@@ -6,7 +6,6 @@
 
 **Git worktree manager for parallel development**
 
-[![npm](https://img.shields.io/npm/v/gwtree?style=for-the-badge&logo=npm&logoColor=white&labelColor=000000&color=000000)](https://www.npmjs.com/package/gwtree)
 [![Coverage](https://img.shields.io/badge/coverage-88.7%25-000000.svg?style=for-the-badge&labelColor=000000)](https://github.com/ahmadawais/gwtree)
 [![Tests](https://img.shields.io/badge/tests-34_passing-000000.svg?style=for-the-badge&labelColor=000000)](https://github.com/ahmadawais/gwtree)
 [![License](https://img.shields.io/badge/license-MIT-000000.svg?style=for-the-badge&labelColor=000000)](LICENSE)
@@ -41,6 +40,7 @@ gwtree
 ```
 
 Interactive prompts guide you through:
+
 1. **Branch** — Select main/master or create new branch
 2. **Worktree name** — Quick edit suffix or press ESC for full customization
 3. **Open in** — Choose VS Code, default editor, or skip
@@ -116,13 +116,13 @@ Defaults stored in `~/.config/gwtree/config.json`:
 
 ## Commands
 
-| Command | Alias | Description |
-|---------|-------|-------------|
-| `gwtree` | `gwt` | Create new worktree |
-| `gwtree list` | `gwt ls` | List and manage worktrees |
-| `gwtree remove` | `gwt rm` | Remove a worktree |
-| `gwtree -v` | `--version` | Show version |
-| `gwtree -h` | `--help` | Show help |
+| Command         | Alias       | Description               |
+| --------------- | ----------- | ------------------------- |
+| `gwtree`        | `gwt`       | Create new worktree       |
+| `gwtree list`   | `gwt ls`    | List and manage worktrees |
+| `gwtree remove` | `gwt rm`    | Remove a worktree         |
+| `gwtree -v`     | `--version` | Show version              |
+| `gwtree -h`     | `--help`    | Show help                 |
 
 <br />
 

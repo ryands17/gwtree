@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import { Command } from 'commander';
 
 describe('CLI Integration', () => {
   it('should parse and execute commands', () => {
     const program = new Command();
-    
+
     program
       .name('gwtree')
       .description('Git worktree manager for parallel development')
@@ -12,25 +12,21 @@ describe('CLI Integration', () => {
       .helpOption('-h, --help', 'Display help for command');
 
     expect(program.name()).toBe('gwtree');
-    expect(program.description()).toBe('Git worktree manager for parallel development');
+    expect(program.description()).toBe(
+      'Git worktree manager for parallel development',
+    );
   });
 
   it('should have correct command structure', () => {
     const program = new Command();
-    
+
     program
       .command('create', { isDefault: true })
       .description('Create a new git worktree');
 
-    program
-      .command('list')
-      .alias('ls')
-      .description('List all git worktrees');
+    program.command('list').alias('ls').description('List all git worktrees');
 
-    program
-      .command('remove')
-      .alias('rm')
-      .description('Remove a git worktree');
+    program.command('remove').alias('rm').description('Remove a git worktree');
 
     const commands = program.commands;
     expect(commands.length).toBe(3);
@@ -42,8 +38,8 @@ describe('CLI Integration', () => {
   it('should configure version option', () => {
     const program = new Command();
     program.version('1.0.0', '-v, --version', 'Output the version number');
-    
-    const versionOption = program.options.find(opt => opt.short === '-v');
+
+    const versionOption = program.options.find((opt) => opt.short === '-v');
     expect(versionOption).toBeDefined();
     expect(versionOption?.long).toBe('--version');
   });
@@ -51,14 +47,14 @@ describe('CLI Integration', () => {
   it('should configure help option', () => {
     const program = new Command();
     program.helpOption('-h, --help', 'Display help for command');
-    
+
     expect(program.helpInformation()).toContain('-h, --help');
   });
 
   it('should register list command with ls alias', () => {
     const program = new Command();
     const listCmd = program.command('list').alias('ls');
-    
+
     expect(listCmd.name()).toBe('list');
     expect(listCmd.aliases()).toContain('ls');
   });
@@ -66,7 +62,7 @@ describe('CLI Integration', () => {
   it('should register remove command with rm alias', () => {
     const program = new Command();
     const removeCmd = program.command('remove').alias('rm');
-    
+
     expect(removeCmd.name()).toBe('remove');
     expect(removeCmd.aliases()).toContain('rm');
   });
@@ -74,7 +70,7 @@ describe('CLI Integration', () => {
   it('should set create as default command', () => {
     const program = new Command();
     const createCmd = program.command('create', { isDefault: true });
-    
+
     expect(createCmd.name()).toBe('create');
   });
 });
