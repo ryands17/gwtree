@@ -1,14 +1,14 @@
+import * as p from '@clack/prompts';
 import {
-  describe,
-  it,
-  expect,
-  beforeEach,
   afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
   mock,
   spyOn,
 } from 'bun:test';
-import { listWorktrees } from './list.js';
-import * as p from '@clack/prompts';
+import { listWorktrees } from './list';
 
 mock.module('@clack/prompts', () => ({
   intro: mock(() => {}),

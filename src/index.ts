@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { createWorktree } from './commands/create.js';
-import { listWorktrees } from './commands/list.js';
-import { removeWorktree } from './commands/remove.js';
+import { createWorktree } from './commands/create';
+import { listWorktrees } from './commands/list';
+import { removeWorktree } from './commands/remove';
 
 const program = new Command();
 

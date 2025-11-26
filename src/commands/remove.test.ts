@@ -8,7 +8,7 @@ import {
   mock,
   spyOn,
 } from 'bun:test';
-import { removeWorktree } from './remove.js';
+import { removeWorktree } from './remove';
 
 mock.module('@clack/prompts', () => ({
   intro: mock(() => {}),

@@ -8,7 +8,7 @@ import {
   mock,
   spyOn,
 } from 'bun:test';
-import { createWorktree } from './create.js';
+import { createWorktree } from './create';
 
 mock.module('@clack/prompts', () => ({
   intro: mock(() => {}),
@@ -23,7 +23,7 @@ mock.module('@clack/prompts', () => ({
   })),
 }));
 
-mock.module('../config.js', () => ({
+mock.module('../config', () => ({
   getConfig: mock(() => ({
     defaultBranchChoice: 'current',
     defaultSuffix: '1',

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { config, getConfig, resetConfig, setConfig } from './config.js';
+import { config, getConfig, resetConfig, setConfig } from './config';
 
 describe('config', () => {
   beforeEach(() => {
