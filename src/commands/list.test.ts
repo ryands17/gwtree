@@ -1,29 +1,57 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test';
 import { listWorktrees } from './list.js';
 import * as p from '@clack/prompts';
-import { execSync } from 'child_process';
 
-vi.mock('child_process');
-vi.mock('@clack/prompts');
+mock.module('@clack/prompts', () => ({
+  intro: mock(() => {}),
+  outro: mock(() => {}),
+  cancel: mock(() => {}),
+  isCancel: mock(() => false),
+  select: mock(() => Promise.resolve('main')),
+  confirm: mock(() => Promise.resolve(false)),
+  spinner: mock(() => ({
+    start: mock(() => {}),
+    stop: mock(() => {}),
+  })),
+}));
 
 describe('listWorktrees', () => {
-  const mockExecSync = vi.mocked(execSync);
+  let mockSpawnSync: any;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(p.intro).mockImplementation(() => {});
-    vi.mocked(p.outro).mockImplementation(() => {});
-    vi.mocked(p.cancel).mockImplementation(() => {});
-    vi.mocked(p.isCancel).mockReturnValue(false);
-    vi.mocked(p.spinner).mockReturnValue({
-      start: vi.fn(),
-      stop: vi.fn(),
-      message: vi.fn()
+    mock.restore();
+
+    // Mock Bun.spawnSync with default implementation
+    mockSpawnSync = spyOn(Bun, 'spawnSync').mockImplementation(
+      () =>
+        ({
+          success: true,
+          stdout: Buffer.from(''),
+          stderr: Buffer.from(''),
+        }) as any,
+    );
+
+    // Reset prompt mocks
+    spyOn(p, 'intro').mockImplementation(() => {});
+    spyOn(p, 'outro').mockImplementation(() => {});
+    spyOn(p, 'cancel').mockImplementation(() => {});
+    spyOn(p, 'isCancel').mockReturnValue(false);
+    spyOn(p, 'spinner').mockReturnValue({
+      start: mock(() => {}),
+      stop: mock(() => {}),
     } as any);
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
   });
 
   it('should handle no worktrees found', async () => {
@@ -32,14 +60,20 @@ HEAD abc1234
 branch refs/heads/main
 `;
 
-    mockExecSync.mockReturnValueOnce(worktreeOutput as any);
+    mockSpawnSync.mockReturnValueOnce({
+      success: true,
+      stdout: Buffer.from(worktreeOutput),
+      stderr: Buffer.from(''),
+    });
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit called');
+    });
 
     try {
       await listWorktrees();
-    } catch (e) {
-      // Expected to exit
+    } catch (e: any) {
+      expect(e.message).toBe('process.exit called');
     }
 
     expect(p.cancel).toHaveBeenCalledWith('No worktrees found');
@@ -57,14 +91,18 @@ HEAD def5678
 branch refs/heads/feature
 `;
 
-    mockExecSync
-      .mockReturnValueOnce(worktreeOutput as any)
+    mockSpawnSync
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(worktreeOutput),
+        stderr: Buffer.from(''),
+      })
       .mockImplementation(() => {
         throw new Error('Failed to remove worktree');
       });
 
-    vi.mocked(p.select).mockResolvedValueOnce('/home/user/repo-feature');
-    vi.mocked(p.confirm).mockResolvedValueOnce(true);
+    spyOn(p, 'select').mockResolvedValueOnce('/home/user/repo-feature');
+    spyOn(p, 'confirm').mockResolvedValueOnce(true);
 
     await expect(listWorktrees()).rejects.toThrow('Failed to remove worktree');
   });

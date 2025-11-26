@@ -1,17 +1,14 @@
 import * as p from '@clack/prompts';
-import { execSync } from 'child_process';
 import chalk from 'chalk';
-import { basename } from 'path';
+import { basename } from 'node:path';
 
 export async function listWorktrees() {
   p.intro('Manage Worktrees');
 
   try {
     while (true) {
-      const output = execSync('git worktree list --porcelain', {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
+      const result = Bun.spawnSync(['git', 'worktree', 'list', '--porcelain']);
+      const output = result.stdout.toString();
 
       const worktrees = [];
       const lines = output.trim().split('\n');
@@ -38,10 +35,10 @@ export async function listWorktrees() {
 
       const worktreeChoice = await p.select({
         message: 'Select worktree to delete (ESC to exit):',
-        options: nonMainWorktrees.map(wt => ({
+        options: nonMainWorktrees.map((wt) => ({
           value: wt.path,
-          label: `${wt.branch || wt.head} ${chalk.dim(basename(wt.path))}`
-        }))
+          label: `${wt.branch || wt.head} ${chalk.dim(basename(wt.path))}`,
+        })),
       });
 
       if (p.isCancel(worktreeChoice)) {
@@ -52,7 +49,7 @@ export async function listWorktrees() {
       const selectedName = basename(worktreeChoice as string);
       const confirm = await p.confirm({
         message: `Delete ${selectedName}?`,
-        initialValue: false
+        initialValue: false,
       });
 
       if (p.isCancel(confirm)) {
@@ -65,9 +62,15 @@ export async function listWorktrees() {
         s.start('Removing worktree...');
 
         try {
-          execSync(`git worktree remove "${worktreeChoice}"`, {
-            stdio: 'pipe'
-          });
+          const removeResult = Bun.spawnSync([
+            'git',
+            'worktree',
+            'remove',
+            worktreeChoice as string,
+          ]);
+          if (!removeResult.success) {
+            throw new Error(removeResult.stderr.toString());
+          }
           s.stop(`${selectedName} removed!`);
         } catch (error) {
           s.stop('Failed to remove worktree');
@@ -76,7 +79,10 @@ export async function listWorktrees() {
       }
     }
   } catch (error) {
-    if (error instanceof Error && error.message.includes('not a git repository')) {
+    if (
+      error instanceof Error &&
+      error.message.includes('not a git repository')
+    ) {
       p.cancel('Error: Not in a git repository');
       process.exit(1);
     }

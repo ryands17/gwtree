@@ -8,11 +8,8 @@
   "scripts": {
     "build": "bun build",
     "dev": "bun run --watch src/index.ts",
-    "test": "vitest",
+    "test": "bun test --coverage",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui",
-    "prepublishOnly": "pnpm build",
-    "release": "./scripts/release.sh",
     "prepare": "husky"
   },
   "keywords": [

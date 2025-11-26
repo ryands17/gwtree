@@ -1,15 +1,11 @@
 import * as p from '@clack/prompts';
-import { execSync } from 'child_process';
-import chalk from 'chalk';
 
 export async function removeWorktree() {
   p.intro('Remove Git Worktree');
 
   try {
-    const output = execSync('git worktree list --porcelain', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+    const result = Bun.spawnSync(['git', 'worktree', 'list', '--porcelain']);
+    const output = result.stdout.toString();
 
     const worktrees = [];
     const lines = output.trim().split('\n');
@@ -36,10 +32,10 @@ export async function removeWorktree() {
 
     const worktreeChoice = await p.select({
       message: 'Select worktree to remove:',
-      options: nonMainWorktrees.map(wt => ({
+      options: nonMainWorktrees.map((wt) => ({
         value: wt.path,
-        label: `${wt.branch || wt.head} - ${wt.path}`
-      }))
+        label: `${wt.branch || wt.head} - ${wt.path}`,
+      })),
     });
 
     if (p.isCancel(worktreeChoice)) {
@@ -49,7 +45,7 @@ export async function removeWorktree() {
 
     const confirm = await p.confirm({
       message: `Remove worktree at ${worktreeChoice}?`,
-      initialValue: false
+      initialValue: false,
     });
 
     if (p.isCancel(confirm) || !confirm) {
@@ -61,9 +57,15 @@ export async function removeWorktree() {
     s.start('Removing worktree...');
 
     try {
-      execSync(`git worktree remove "${worktreeChoice}"`, {
-        stdio: 'pipe'
-      });
+      const removeResult = Bun.spawnSync([
+        'git',
+        'worktree',
+        'remove',
+        worktreeChoice as string,
+      ]);
+      if (!removeResult.success) {
+        throw new Error(removeResult.stderr.toString());
+      }
       s.stop('Worktree removed successfully!');
     } catch (error) {
       s.stop('Failed to remove worktree');
@@ -72,7 +74,10 @@ export async function removeWorktree() {
 
     p.outro('✓ Done');
   } catch (error) {
-    if (error instanceof Error && error.message.includes('not a git repository')) {
+    if (
+      error instanceof Error &&
+      error.message.includes('not a git repository')
+    ) {
       p.cancel('Error: Not in a git repository');
       process.exit(1);
     }

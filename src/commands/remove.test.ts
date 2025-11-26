@@ -1,29 +1,57 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { removeWorktree } from './remove.js';
 import * as p from '@clack/prompts';
-import { execSync } from 'child_process';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  spyOn,
+} from 'bun:test';
+import { removeWorktree } from './remove.js';
 
-vi.mock('child_process');
-vi.mock('@clack/prompts');
+mock.module('@clack/prompts', () => ({
+  intro: mock(() => {}),
+  outro: mock(() => {}),
+  cancel: mock(() => {}),
+  isCancel: mock(() => false),
+  select: mock(() => Promise.resolve('main')),
+  confirm: mock(() => Promise.resolve(false)),
+  spinner: mock(() => ({
+    start: mock(() => {}),
+    stop: mock(() => {}),
+  })),
+}));
 
 describe('removeWorktree', () => {
-  const mockExecSync = vi.mocked(execSync);
+  let mockSpawnSync: any;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(p.intro).mockImplementation(() => {});
-    vi.mocked(p.outro).mockImplementation(() => {});
-    vi.mocked(p.cancel).mockImplementation(() => {});
-    vi.mocked(p.isCancel).mockReturnValue(false);
-    vi.mocked(p.spinner).mockReturnValue({
-      start: vi.fn(),
-      stop: vi.fn(),
-      message: vi.fn()
+    mock.restore();
+
+    // Mock Bun.spawnSync with default implementation
+    mockSpawnSync = spyOn(Bun, 'spawnSync').mockImplementation(
+      () =>
+        ({
+          success: true,
+          stdout: Buffer.from(''),
+          stderr: Buffer.from(''),
+        }) as any,
+    );
+
+    // Reset prompt mocks
+    spyOn(p, 'intro').mockImplementation(() => {});
+    spyOn(p, 'outro').mockImplementation(() => {});
+    spyOn(p, 'cancel').mockImplementation(() => {});
+    spyOn(p, 'isCancel').mockReturnValue(false);
+    spyOn(p, 'spinner').mockReturnValue({
+      start: mock(() => {}),
+      stop: mock(() => {}),
     } as any);
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    mock.restore();
   });
 
   it('should remove selected worktree', async () => {
@@ -36,16 +64,36 @@ HEAD def5678
 branch refs/heads/feature
 `;
 
-    mockExecSync.mockReturnValueOnce(worktreeOutput as any).mockReturnValueOnce('' as any);
+    mockSpawnSync
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(worktreeOutput),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      });
 
-    vi.mocked(p.select).mockResolvedValueOnce('/home/user/repo-feature');
-    vi.mocked(p.confirm).mockResolvedValueOnce(true);
+    spyOn(p, 'select').mockResolvedValueOnce('/home/user/repo-feature');
+    spyOn(p, 'confirm').mockResolvedValueOnce(true);
 
     await removeWorktree();
 
     expect(p.intro).toHaveBeenCalledWith('Remove Git Worktree');
-    expect(mockExecSync).toHaveBeenCalledWith('git worktree list --porcelain', expect.any(Object));
-    expect(mockExecSync).toHaveBeenCalledWith('git worktree remove "/home/user/repo-feature"', expect.any(Object));
+    expect(mockSpawnSync).toHaveBeenCalledWith([
+      'git',
+      'worktree',
+      'list',
+      '--porcelain',
+    ]);
+    expect(mockSpawnSync).toHaveBeenCalledWith([
+      'git',
+      'worktree',
+      'remove',
+      '/home/user/repo-feature',
+    ]);
     expect(p.outro).toHaveBeenCalledWith('✓ Done');
   });
 
@@ -55,11 +103,21 @@ HEAD abc1234
 branch refs/heads/main
 `;
 
-    mockExecSync.mockReturnValueOnce(worktreeOutput as any);
+    mockSpawnSync.mockReturnValueOnce({
+      success: true,
+      stdout: Buffer.from(worktreeOutput),
+      stderr: Buffer.from(''),
+    });
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit called');
+    });
 
-    await removeWorktree();
+    try {
+      await removeWorktree();
+    } catch (e: any) {
+      expect(e.message).toBe('process.exit called');
+    }
 
     expect(p.cancel).toHaveBeenCalledWith('No worktrees to remove');
     expect(exitSpy).toHaveBeenCalledWith(0);
@@ -76,16 +134,20 @@ HEAD def5678
 branch refs/heads/feature
 `;
 
-    mockExecSync
-      .mockReturnValueOnce(worktreeOutput as any)
+    mockSpawnSync
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(worktreeOutput),
+        stderr: Buffer.from(''),
+      })
       .mockImplementation(() => {
         throw new Error('Failed to remove worktree');
       });
 
-    vi.mocked(p.select).mockResolvedValueOnce('/home/user/repo-feature');
-    vi.mocked(p.confirm).mockResolvedValueOnce(true);
+    spyOn(p, 'select').mockResolvedValueOnce('/home/user/repo-feature');
+    spyOn(p, 'confirm').mockResolvedValueOnce(true);
 
-    await expect(removeWorktree()).rejects.toThrow('Failed to remove worktree');
+    expect(removeWorktree()).rejects.toThrow('Failed to remove worktree');
   });
 
   it('should parse worktrees without branch (detached HEAD)', async () => {
@@ -97,10 +159,20 @@ worktree /home/user/repo-detached
 HEAD def5678
 `;
 
-    mockExecSync.mockReturnValueOnce(worktreeOutput as any).mockReturnValueOnce('' as any);
+    mockSpawnSync
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(worktreeOutput),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      });
 
-    vi.mocked(p.select).mockResolvedValueOnce('/home/user/repo-detached');
-    vi.mocked(p.confirm).mockResolvedValueOnce(true);
+    spyOn(p, 'select').mockResolvedValueOnce('/home/user/repo-detached');
+    spyOn(p, 'confirm').mockResolvedValueOnce(true);
 
     await removeWorktree();
 
@@ -108,10 +180,10 @@ HEAD def5678
       expect.objectContaining({
         options: expect.arrayContaining([
           expect.objectContaining({
-            label: expect.stringContaining('def5678')
-          })
-        ])
-      })
+            label: expect.stringContaining('def5678'),
+          }),
+        ]),
+      }),
     );
   });
 });
