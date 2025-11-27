@@ -4,7 +4,7 @@ import { basename, dirname, join } from 'node:path';
 import { getConfig } from '../config';
 
 export async function createWorktree() {
-  const userConfig = getConfig();
+  const userConfig = await getConfig();
   p.intro('Create Git Worktree');
 
   try {

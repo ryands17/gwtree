@@ -1,92 +1,169 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { config, getConfig, resetConfig, setConfig } from './config';
+import { describe, expect, it, mock, beforeEach } from 'bun:test';
 
-describe('config', () => {
+// Mock cosmiconfig before importing getConfig
+let mockSearchResult: any = null;
+mock.module('cosmiconfig', () => ({
+  cosmiconfig: mock(() => ({
+    search: mock(() => Promise.resolve(mockSearchResult)),
+  })),
+}));
+
+// Import after mocking
+const { getConfig } = await import('./config');
+
+describe('getConfig', () => {
   beforeEach(() => {
-    resetConfig();
+    // Reset mock result before each test
+    mockSearchResult = null;
   });
 
-  afterEach(() => {
-    resetConfig();
+  it('should return default configuration when no config file exists', async () => {
+    mockSearchResult = null;
+
+    const cfg = await getConfig();
+
+    expect(cfg).toEqual({
+      defaultBranchChoice: 'current',
+      defaultSuffix: '1',
+      defaultOpenEditor: true,
+      defaultEditor: 'code',
+      namePattern: '{repo}-{branch}-wt-{suffix}',
+    });
   });
 
-  describe('getConfig', () => {
-    it('should return default configuration', () => {
-      const cfg = getConfig();
-      expect(cfg).toEqual({
+  it('should return default configuration when config file is empty', async () => {
+    mockSearchResult = { config: {}, filepath: '.gwtreerc' };
+
+    const cfg = await getConfig();
+
+    expect(cfg).toEqual({
+      defaultBranchChoice: 'current',
+      defaultSuffix: '1',
+      defaultOpenEditor: true,
+      defaultEditor: 'code',
+      namePattern: '{repo}-{branch}-wt-{suffix}',
+    });
+  });
+
+  it('should merge partial config with defaults', async () => {
+    mockSearchResult = {
+      config: {
+        defaultSuffix: 'custom',
+        defaultEditor: 'none',
+      },
+      filepath: '.gwtreerc.json',
+    };
+
+    const cfg = await getConfig();
+
+    expect(cfg).toEqual({
+      defaultBranchChoice: 'current', // default
+      defaultSuffix: 'custom', // from config
+      defaultOpenEditor: true, // default
+      defaultEditor: 'none', // from config
+      namePattern: '{repo}-{branch}-wt-{suffix}', // default
+    });
+  });
+
+  it('should load full custom configuration', async () => {
+    mockSearchResult = {
+      config: {
+        defaultBranchChoice: 'new',
+        defaultSuffix: 'dev',
+        defaultOpenEditor: false,
+        defaultEditor: 'default',
+        namePattern: '{repo}-{suffix}',
+      },
+      filepath: '.gwtreerc.json',
+    };
+
+    const cfg = await getConfig();
+
+    expect(cfg).toEqual({
+      defaultBranchChoice: 'new',
+      defaultSuffix: 'dev',
+      defaultOpenEditor: false,
+      defaultEditor: 'default',
+      namePattern: '{repo}-{suffix}',
+    });
+  });
+
+  it('should return defaults when config validation fails', async () => {
+    mockSearchResult = {
+      config: {
+        defaultBranchChoice: 'invalid', // invalid enum value
+        defaultEditor: 'invalid', // invalid enum value
+      },
+      filepath: '.gwtreerc.json',
+    };
+
+    const consoleWarnSpy = mock(() => {});
+    const originalWarn = console.warn;
+    console.warn = consoleWarnSpy;
+
+    const cfg = await getConfig();
+
+    // Should fall back to defaults on validation error
+    expect(cfg).toEqual({
+      defaultBranchChoice: 'current',
+      defaultSuffix: '1',
+      defaultOpenEditor: true,
+      defaultEditor: 'code',
+      namePattern: '{repo}-{branch}-wt-{suffix}',
+    });
+
+    expect(consoleWarnSpy).toHaveBeenCalled();
+
+    console.warn = originalWarn;
+  });
+
+  it('should validate defaultBranchChoice enum', async () => {
+    mockSearchResult = {
+      config: {
         defaultBranchChoice: 'current',
-        defaultSuffix: '1',
-        defaultOpenEditor: true,
+      },
+      filepath: '.gwtreerc.json',
+    };
+
+    const cfg = await getConfig();
+    expect(cfg.defaultBranchChoice).toBe('current');
+  });
+
+  it('should validate defaultEditor enum', async () => {
+    mockSearchResult = {
+      config: {
         defaultEditor: 'code',
-        namePattern: '{repo}-{branch}-wt-{suffix}',
-      });
-    });
+      },
+      filepath: '.gwtreerc.json',
+    };
 
-    it('should return updated configuration after setConfig', () => {
-      setConfig('defaultSuffix', 'test');
-      const cfg = getConfig();
-      expect(cfg.defaultSuffix).toBe('test');
-    });
+    const cfg = await getConfig();
+    expect(cfg.defaultEditor).toBe('code');
   });
 
-  describe('setConfig', () => {
-    it('should update defaultBranchChoice', () => {
-      setConfig('defaultBranchChoice', 'new');
-      expect(getConfig().defaultBranchChoice).toBe('new');
-    });
+  it('should validate boolean fields', async () => {
+    mockSearchResult = {
+      config: {
+        defaultOpenEditor: false,
+      },
+      filepath: '.gwtreerc.json',
+    };
 
-    it('should update defaultSuffix', () => {
-      setConfig('defaultSuffix', 'custom');
-      expect(getConfig().defaultSuffix).toBe('custom');
-    });
-
-    it('should update defaultOpenEditor', () => {
-      setConfig('defaultOpenEditor', false);
-      expect(getConfig().defaultOpenEditor).toBe(false);
-    });
-
-    it('should update defaultEditor', () => {
-      setConfig('defaultEditor', 'default');
-      expect(getConfig().defaultEditor).toBe('default');
-    });
-
-    it('should update namePattern', () => {
-      setConfig('namePattern', '{repo}-{suffix}');
-      expect(getConfig().namePattern).toBe('{repo}-{suffix}');
-    });
+    const cfg = await getConfig();
+    expect(cfg.defaultOpenEditor).toBe(false);
   });
 
-  describe('resetConfig', () => {
-    it('should reset configuration to defaults', () => {
-      setConfig('defaultSuffix', 'modified');
-      setConfig('defaultEditor', 'none');
-      resetConfig();
-      const cfg = getConfig();
-      expect(cfg.defaultSuffix).toBe('1');
-      expect(cfg.defaultEditor).toBe('code');
-    });
+  it('should validate string fields', async () => {
+    mockSearchResult = {
+      config: {
+        defaultSuffix: 'my-suffix',
+        namePattern: 'custom-{branch}',
+      },
+      filepath: '.gwtreerc.json',
+    };
 
-    it('should clear all custom values', () => {
-      setConfig('defaultBranchChoice', 'new');
-      setConfig('namePattern', 'custom-pattern');
-      resetConfig();
-      const cfg = getConfig();
-      expect(cfg.defaultBranchChoice).toBe('current');
-      expect(cfg.namePattern).toBe('{repo}-{branch}-wt-{suffix}');
-    });
-  });
-
-  describe('config object', () => {
-    it('should be an instance of Conf', () => {
-      expect(config).toBeDefined();
-      expect(config.get).toBeDefined();
-      expect(config.set).toBeDefined();
-      expect(config.clear).toBeDefined();
-    });
-
-    it('should persist values across get/set operations', () => {
-      config.set('defaultSuffix', 'persistent');
-      expect(config.get('defaultSuffix')).toBe('persistent');
-    });
+    const cfg = await getConfig();
+    expect(cfg.defaultSuffix).toBe('my-suffix');
+    expect(cfg.namePattern).toBe('custom-{branch}');
   });
 });

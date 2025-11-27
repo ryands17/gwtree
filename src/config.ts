@@ -1,57 +1,37 @@
-import Conf from 'conf';
+import { cosmiconfig } from 'cosmiconfig';
+import { z } from 'zod';
 
-export interface GWTreeConfig {
-  defaultBranchChoice: 'current' | 'new';
-  defaultSuffix: string;
-  defaultOpenEditor: boolean;
-  defaultEditor: 'code' | 'default' | 'none';
-  namePattern: string;
-}
-
-const schema = {
-  defaultBranchChoice: {
-    type: 'string',
-    enum: ['current', 'new'],
-    default: 'current'
-  },
-  defaultSuffix: {
-    type: 'string',
-    default: '1'
-  },
-  defaultOpenEditor: {
-    type: 'boolean',
-    default: true
-  },
-  defaultEditor: {
-    type: 'string',
-    enum: ['code', 'default', 'none'],
-    default: 'code'
-  },
-  namePattern: {
-    type: 'string',
-    default: '{repo}-{branch}-wt-{suffix}'
-  }
-} as const;
-
-export const config = new Conf<GWTreeConfig>({
-  projectName: 'gwtree',
-  schema
+// Zod schema with defaults
+const configSchema = z.object({
+  defaultBranchChoice: z.enum(['current', 'new']).default('current'),
+  defaultSuffix: z.string().default('1'),
+  defaultOpenEditor: z.boolean().default(true),
+  defaultEditor: z.enum(['code', 'default', 'none']).default('code'),
+  namePattern: z.string().default('{repo}-{branch}-wt-{suffix}'),
 });
 
-export function getConfig(): GWTreeConfig {
-  return {
-    defaultBranchChoice: config.get('defaultBranchChoice'),
-    defaultSuffix: config.get('defaultSuffix'),
-    defaultOpenEditor: config.get('defaultOpenEditor'),
-    defaultEditor: config.get('defaultEditor'),
-    namePattern: config.get('namePattern')
-  };
-}
+export type GWTreeConfig = z.infer<typeof configSchema>;
 
-export function setConfig(key: keyof GWTreeConfig, value: any): void {
-  config.set(key, value);
-}
+/**
+ * Get configuration from .gwtreerc files or defaults
+ * Searches for config in the following order:
+ * - .gwtreerc
+ * - .gwtreerc.json
+ * - .gwtreerc.js
+ * - gwtree field in package.json
+ */
+export async function getConfig(): Promise<GWTreeConfig> {
+  const explorer = cosmiconfig('gwtree');
+  const result = await explorer.search();
 
-export function resetConfig(): void {
-  config.clear();
+  if (!result || !result.config) {
+    // No config file found, return defaults
+    return configSchema.parse({});
+  }
+
+  const { success, data } = await configSchema.safeParseAsync(result.config);
+  if (!success) {
+    return configSchema.parse({});
+  }
+  return data;
 }
