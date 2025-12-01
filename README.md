@@ -25,9 +25,8 @@ Perfect for running multiple coding agents in parallel on different branches.
 
 ## Installation
 
-```bash
-npm install -g gwtree
-```
+- Download the binary from the releases page
+- Move the binary into any folder in your path for e.g. `~/.local/bin/`
 
 <br />
 
