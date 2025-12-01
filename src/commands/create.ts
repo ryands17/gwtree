@@ -1,7 +1,7 @@
 import * as p from '@clack/prompts';
 import chalk from 'chalk';
 import { basename, dirname, join } from 'node:path';
-import { getConfig } from '../config';
+import { copyHookFiles, getConfig, runHookCommands } from '../config';
 
 export async function createWorktree() {
   const userConfig = await getConfig();
@@ -173,6 +173,47 @@ export async function createWorktree() {
     } catch (error) {
       s.stop('Failed to create worktree');
       throw error;
+    }
+
+    // Run onCreate hooks
+    if (userConfig.hooks?.onCreate) {
+      const { copyFiles, runCommands } = userConfig.hooks.onCreate;
+
+      if (copyFiles || runCommands) {
+        const hookSpinner = p.spinner();
+        hookSpinner.start('Running onCreate hooks...');
+
+        try {
+          // First copy files/directories
+          if (copyFiles) {
+            p.log.info('Copying files...');
+
+            await copyHookFiles(copyFiles, {
+              gitRoot,
+              worktreePath,
+              branchName,
+            });
+
+            p.log.success('Files copied');
+          }
+
+          // Then run commands
+          if (runCommands) {
+            p.log.info('Running commands...');
+
+            await runHookCommands(runCommands, {
+              worktreePath,
+              branchName,
+            });
+
+            p.log.success('Commands executed');
+          }
+        } catch (error) {
+          console.warn('Hook execution encountered errors:', error);
+        } finally {
+          hookSpinner.stop('Hooks completed');
+        }
+      }
     }
 
     const editorChoice = await p.select({

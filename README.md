@@ -81,7 +81,10 @@ Pattern: `{repo}-{branch}-wt-{suffix}`
 List, search, and delete worktrees
 
 **Configurable defaults**  
-Customize via `~/.config/gwtree/config.json`
+Customize via `.gwtreerc.json` in your project
+
+**Automation hooks**  
+Copy files and run commands on worktree creation
 
 **Clean UX**  
 Dimmed prefixes, ESC for full control
@@ -97,7 +100,7 @@ Unique branch names for each worktree
 
 ## Configuration
 
-Defaults stored in `~/.config/gwtree/config.json`:
+Create a `.gwtreerc.json` file in your project root to customize defaults:
 
 ```json
 {
@@ -107,6 +110,105 @@ Defaults stored in `~/.config/gwtree/config.json`:
   "namePattern": "{repo}-{branch}-wt-{suffix}"
 }
 ```
+
+GWTree searches for configuration in the following order:
+
+- `.gwtreerc`
+- `.gwtreerc.json`
+- `.gwtreerc.js`
+- `gwtree` field in `package.json`
+
+### Available Options
+
+| Option                | Type                                | Default                         | Description              |
+| --------------------- | ----------------------------------- | ------------------------------- | ------------------------ |
+| `defaultBranchChoice` | `"current"` \| `"new"`              | `"current"`                     | Default branch selection |
+| `defaultSuffix`       | `string`                            | `"1"`                           | Default worktree suffix  |
+| `defaultOpenEditor`   | `boolean`                           | `true`                          | Prompt to open editor    |
+| `defaultEditor`       | `"code"` \| `"default"` \| `"none"` | `"code"`                        | Default editor choice    |
+| `namePattern`         | `string`                            | `"{repo}-{branch}-wt-{suffix}"` | Worktree naming pattern  |
+
+<br />
+
+---
+
+<br />
+
+## Hooks
+
+Automate tasks when creating worktrees with the `onCreate` hook:
+
+### Copy Files
+
+Copy files or directories from your main worktree to newly created worktrees:
+
+```json
+{
+  "hooks": {
+    "onCreate": {
+      "copyFiles": [
+        { "src": ".env", "dst": "." },
+        { "src": "root/.env.local", "dst": "." },
+        { "src": "config", "dst": "config" }
+      ]
+    }
+  }
+}
+```
+
+**Path resolution:**
+
+- `src`: Path relative to git root (optional `root/` prefix)
+- `dst`: Path relative to new worktree (`.` copies to root)
+
+### Run Commands
+
+Execute commands in the newly created worktree:
+
+```json
+{
+  "hooks": {
+    "onCreate": {
+      "runCommands": ["npm install", "echo 'Setup complete for {branchName}'"]
+    }
+  }
+}
+```
+
+**Variables:**
+
+- `{worktreePath}` - Full path to new worktree
+- `{branchName}` - Branch name
+
+### Complete Example
+
+Combine file copying and command execution:
+
+```json
+{
+  "defaultEditor": "code",
+  "hooks": {
+    "onCreate": {
+      "copyFiles": [
+        { "src": ".env", "dst": "." },
+        { "src": "node_modules", "dst": "." }
+      ],
+      "runCommands": [
+        "npm install",
+        "npm run build",
+        "echo 'Worktree {branchName} ready!'"
+      ]
+    }
+  }
+}
+```
+
+**Execution order:**
+
+1. Worktree created
+2. Files/directories copied (`copyFiles`)
+3. Commands executed (`runCommands`)
+4. Editor opened (if configured)
 
 <br />
 

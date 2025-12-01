@@ -6,10 +6,8 @@
   "module": "src/index.ts",
   "private": true,
   "scripts": {
-    "build": "bun build",
     "dev": "bun run --watch src/index.ts",
     "test": "bun test --coverage",
-    "test:coverage": "vitest run --coverage",
     "prepare": "husky"
   },
   "keywords": [
@@ -56,5 +54,21 @@
   },
   "lint-staged": {
     "*.{ts,js,json,md}": "prettier --write"
+  },
+  "gwtree": {
+    "defaultBaseBranch": "main",
+    "hooks": {
+      "onCreate": {
+        "copyFiles": [
+          {
+            "src": "node_modules",
+            "dst": "."
+          }
+        ],
+        "runCommands": [
+          "bun install"
+        ]
+      }
+    }
   }
 }

@@ -1,9 +1,9 @@
-#!/usr/bin/env node
-
 import { Command } from 'commander';
 import { createWorktree } from './commands/create';
 import { listWorktrees } from './commands/list';
 import { removeWorktree } from './commands/remove';
+
+import * as pk from '../package.json';
 
 const program = new Command();
 
@@ -21,8 +21,8 @@ console.log(banner);
 program
   .name('gwtree')
   .description('Git worktree manager for parallel development')
-  .version('1.1.2', '-v, --version', 'Output the version number')
-  .helpOption('-h, --help', 'Display help for command');
+  .version(pk.version, '-v, --version', 'Output the version number')
+  .helpOption('-h, --help', 'Display help for commands');
 
 program
   .command('create', { isDefault: true })
