@@ -100,7 +100,40 @@ Unique branch names for each worktree
 
 ## Configuration
 
-Create a `.gwtreerc.json` file in your project root to customize defaults:
+GWTree supports two levels of configuration: **global** (user-level) and **project** (repository-level).
+
+### Global Configuration
+
+Create a global configuration file to set your preferred defaults across **all projects**:
+
+**Location (platform-specific):**
+
+- **macOS**: `~/.config/gwtree/config.json`
+- **Linux**: `~/.config/gwtree/config.json`
+
+**Example:**
+
+```json
+{
+  "defaultSuffix": "1",
+  "defaultEditor": "code",
+  "defaultBranchChoice": "current",
+  "namePattern": "{repo}-{branch}-wt-{suffix}"
+}
+```
+
+### Project Configuration
+
+Create a project-specific configuration file in your repository root to customize settings for that project:
+
+**Searched in order:**
+
+- `.gwtreerc`
+- `.gwtreerc.json`
+- `.gwtreerc.js`
+- `gwtree` field in `package.json`
+
+**Example (`.gwtreerc.json`):**
 
 ```json
 {
@@ -111,12 +144,28 @@ Create a `.gwtreerc.json` file in your project root to customize defaults:
 }
 ```
 
-GWTree searches for configuration in the following order:
+### Configuration Priority
 
-- `.gwtreerc`
-- `.gwtreerc.json`
-- `.gwtreerc.js`
-- `gwtree` field in `package.json`
+Settings are merged in this order (highest priority last):
+
+1. **Schema defaults** (built-in defaults)
+2. **Global config** (platform-specific location, see above)
+3. **Project config** (`.gwtreerc*` or `package.json`)
+
+Project settings **override** global settings, which override defaults.
+
+**Example:**
+
+If you have:
+
+- **Global config**: `{ "defaultSuffix": "global", "defaultEditor": "default" }`
+- **Project config**: `{ "defaultSuffix": "project" }`
+
+The final configuration will be:
+
+- `defaultSuffix`: `"project"` (from project)
+- `defaultEditor`: `"default"` (from global)
+- Other settings: schema defaults
 
 ### Available Options
 

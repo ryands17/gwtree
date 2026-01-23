@@ -1,4 +1,5 @@
 import { cosmiconfig } from 'cosmiconfig';
+import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { z } from 'zod';
 
@@ -31,27 +32,93 @@ const configSchema = z.object({
 export type GWTreeConfig = z.infer<typeof configSchema>;
 
 /**
- * Get configuration from .gwtreerc files or defaults
- * Searches for config in the following order:
- * - .gwtreerc
- * - .gwtreerc.json
- * - .gwtreerc.js
- * - gwtree field in package.json
+ * Get the path to the global config file
+ * Platform-specific locations:
+ * - macOS: ~/Library/Preferences/gwtree/config.json
+ * - Linux: ~/.config/gwtree/config.json
+ * - Windows: %APPDATA%\gwtree\config.json
+ */
+export function getGlobalConfigPath(): string {
+  const home = homedir();
+  const platform = process.platform;
+
+  if (platform === 'darwin') {
+    return join(home, 'Library', 'Preferences', 'gwtree', 'config.json');
+  } else if (platform === 'win32') {
+    const appData = process.env.APPDATA || join(home, 'AppData', 'Roaming');
+    return join(appData, 'gwtree', 'config.json');
+  } else {
+    // Linux and others
+    const configHome = process.env.XDG_CONFIG_HOME || join(home, '.config');
+    return join(configHome, 'gwtree', 'config.json');
+  }
+}
+
+/**
+ * Read global config from file system
+ */
+async function readGlobalConfig(): Promise<Partial<GWTreeConfig>> {
+  try {
+    const configPath = getGlobalConfigPath();
+    const file = Bun.file(configPath);
+
+    if (!(await file.exists())) {
+      return {};
+    }
+
+    const content = await file.json();
+    return content;
+  } catch (error) {
+    // Silently return empty config if file doesn't exist or is invalid
+    return {};
+  }
+}
+
+/**
+ * Get configuration with priority: defaults <- global <- project
+ *
+ * Priority order (highest to lowest):
+ * 1. Project-level config (.gwtreerc, .gwtreerc.json, .gwtreerc.js, package.json)
+ * 2. Global user-level config (~/.config/gwtree/config.json)
+ * 3. Schema defaults
  */
 export async function getConfig(): Promise<GWTreeConfig> {
+  // 1. Get defaults from schema
+  const defaults = configSchema.parse({});
+
+  // 2. Get global config from ~/.config/gwtree/config.json
+  const globalConfig = await readGlobalConfig();
+
+  // 3. Get project config from cosmiconfig (raw, not validated yet)
   const explorer = cosmiconfig('gwtree');
   const result = await explorer.search();
 
-  if (!result || !result.config) {
-    // No config file found, return defaults
-    return configSchema.parse({});
+  let projectConfig: Record<string, any> = {};
+  if (result?.config) {
+    projectConfig = result.config;
   }
 
-  const { success, data, error } = await configSchema.safeParseAsync(
-    result.config,
-  );
+  // 4. Merge: defaults <- global <- project (using raw configs)
+  const merged = {
+    ...defaults,
+    ...globalConfig,
+    ...projectConfig,
+  };
+
+  // Handle hooks separately - project hooks completely override global (no array merging)
+  if (projectConfig.hooks !== undefined) {
+    merged.hooks = projectConfig.hooks;
+  } else if (globalConfig.hooks !== undefined) {
+    merged.hooks = globalConfig.hooks;
+  }
+
+  // 5. Final validation and return
+  const { success, data, error } = await configSchema.safeParseAsync(merged);
   if (!success) {
-    console.warn('Config validation failed, using defaults:', error);
+    console.warn(
+      'Merged config validation failed, using defaults:',
+      error.message,
+    );
     return configSchema.parse({});
   }
   return data;
