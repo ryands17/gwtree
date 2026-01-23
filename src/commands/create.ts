@@ -40,14 +40,30 @@ export async function createWorktree() {
     const mainBranch =
       branches.find((b) => b === 'main' || b === 'master') || currentBranch;
 
+    const options = [];
+
+    // Add current branch first if different from main/master
+    if (currentBranch !== mainBranch) {
+      options.push({
+        value: currentBranch,
+        label: `${currentBranch} (current)`,
+      });
+    }
+
+    // Add main/master branch
+    options.push({ value: mainBranch, label: mainBranch });
+    // Add "Create new branch" option
+    options.push({ value: 'new', label: 'Create new branch' });
+
     const branchChoice = await p.select({
       message: 'Branch:',
-      options: [
-        { value: mainBranch, label: mainBranch },
-        { value: 'new', label: 'Create new branch' },
-      ],
+      options,
       initialValue:
-        userConfig.defaultBranchChoice === 'new' ? 'new' : mainBranch,
+        userConfig.defaultBranchChoice === 'new'
+          ? 'new'
+          : currentBranch !== mainBranch
+            ? currentBranch
+            : mainBranch,
     });
 
     if (p.isCancel(branchChoice)) {

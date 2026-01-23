@@ -442,4 +442,89 @@ describe('createWorktree', () => {
       expect.any(Object),
     );
   });
+
+  it('should show current branch first with (current) label when different from main', async () => {
+    mockSpawnSync
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('/home/user/repo\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('feature-branch\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\nfeature-branch\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      });
+
+    const selectSpy = spyOn(p, 'select')
+      .mockResolvedValueOnce('feature-branch')
+      .mockResolvedValueOnce('none');
+    spyOn(p, 'text').mockResolvedValueOnce('test');
+
+    await createWorktree();
+
+    expect(selectSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Branch:',
+        options: [
+          { value: 'feature-branch', label: 'feature-branch (current)' },
+          { value: 'main', label: 'main' },
+          { value: 'new', label: 'Create new branch' },
+        ],
+        initialValue: 'feature-branch',
+      }),
+    );
+  });
+
+  it('should not duplicate current branch when it is main', async () => {
+    mockSpawnSync
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('/home/user/repo\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      });
+
+    const selectSpy = spyOn(p, 'select')
+      .mockResolvedValueOnce('main')
+      .mockResolvedValueOnce('none');
+    spyOn(p, 'text').mockResolvedValueOnce('test');
+
+    await createWorktree();
+
+    expect(selectSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Branch:',
+        options: [
+          { value: 'main', label: 'main' },
+          { value: 'new', label: 'Create new branch' },
+        ],
+        initialValue: 'main',
+      }),
+    );
+  });
 });
