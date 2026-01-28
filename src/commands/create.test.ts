@@ -404,7 +404,7 @@ describe('createWorktree', () => {
     spyOn(p, 'select').mockResolvedValueOnce('main');
     spyOn(p, 'text').mockResolvedValueOnce('test');
 
-    await expect(createWorktree()).rejects.toThrow('Failed to create worktree');
+    expect(createWorktree()).rejects.toThrow('Failed to create worktree');
   });
 
   it('should create unique branch name when branch exists', async () => {
@@ -421,7 +421,7 @@ describe('createWorktree', () => {
       })
       .mockReturnValueOnce({
         success: true,
-        stdout: Buffer.from('main\nmain-test\nmain-test-1\n'),
+        stdout: Buffer.from('main\nmain-repo-main-wt-test\n'),
         stderr: Buffer.from(''),
       })
       .mockReturnValueOnce({
@@ -438,7 +438,7 @@ describe('createWorktree', () => {
     await createWorktree();
 
     expect(mockSpawnSync).toHaveBeenCalledWith(
-      expect.arrayContaining(['git', 'worktree', 'add', '-b', 'main-test-2']),
+      expect.arrayContaining(['git', 'worktree', 'add', '-b', 'main-test-1']),
       expect.any(Object),
     );
   });

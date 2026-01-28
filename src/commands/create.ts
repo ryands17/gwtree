@@ -85,7 +85,7 @@ export async function createWorktree() {
       .replace('{branch}', branchName)
       .replace('-{suffix}', '');
 
-    const suffix = await p.text({
+    let suffix = await p.text({
       message: `Worktree name: ${chalk.dim(prefix + '-')}`,
       defaultValue: userConfig.defaultSuffix,
       placeholder: `${userConfig.defaultSuffix} (ESC for full edit)`,
@@ -94,6 +94,7 @@ export async function createWorktree() {
     let worktreeName: string;
 
     if (p.isCancel(suffix)) {
+      suffix = userConfig.defaultSuffix;
       const defaultName = `${repoName}-${branchName}`;
 
       const customName = await p.text({
@@ -145,7 +146,7 @@ export async function createWorktree() {
           },
         );
       } else {
-        let newBranchForWorktree = `${branchName}-${String(suffix) || 'wt'}`;
+        let newBranchForWorktree = `${branchName}-${worktreeName || 'wt'}`;
         let counter = 1;
         while (branches.includes(newBranchForWorktree)) {
           newBranchForWorktree = `${branchName}-${String(suffix) || 'wt'}-${counter}`;

@@ -1,5 +1,3 @@
-import { cosmiconfig } from 'cosmiconfig';
-import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { z } from 'zod';
 
@@ -32,96 +30,60 @@ const configSchema = z.object({
 export type GWTreeConfig = z.infer<typeof configSchema>;
 
 /**
- * Get the path to the global config file
- * Platform-specific locations:
- * - macOS: ~/Library/Preferences/gwtree/config.json
- * - Linux: ~/.config/gwtree/config.json
- * - Windows: %APPDATA%\gwtree\config.json
+ * Recursively search for config files from current directory to home directory
  */
-export function getGlobalConfigPath(): string {
-  const home = homedir();
-  const platform = process.platform;
+async function findConfigFile(startDir: string): Promise<string | null> {
+  const homeDir = Bun.env.HOME || process.env.HOME;
+  if (!homeDir) return null;
 
-  if (platform === 'darwin') {
-    return join(home, 'Library', 'Preferences', 'gwtree', 'config.json');
-  } else if (platform === 'win32') {
-    const appData = process.env.APPDATA || join(home, 'AppData', 'Roaming');
-    return join(appData, 'gwtree', 'config.json');
-  } else {
-    // Linux and others
-    const configHome = process.env.XDG_CONFIG_HOME || join(home, '.config');
-    return join(configHome, 'gwtree', 'config.json');
-  }
-}
+  const configNames = ['.gwtreerc', 'gwtree.json', '.gwtree.json'];
+  let currentDir = startDir;
 
-/**
- * Read global config from file system
- */
-async function readGlobalConfig(): Promise<Partial<GWTreeConfig>> {
-  try {
-    const configPath = getGlobalConfigPath();
-    const file = Bun.file(configPath);
-
-    if (!(await file.exists())) {
-      return {};
+  while (true) {
+    // Check for config files in current directory
+    for (const name of configNames) {
+      const configPath = join(currentDir, name);
+      if (await Bun.file(configPath).exists()) {
+        return configPath;
+      }
     }
 
-    const content = await file.json();
-    return content;
-  } catch (error) {
-    // Silently return empty config if file doesn't exist or is invalid
-    return {};
+    // Stop if we've reached home directory
+    if (currentDir === homeDir) break;
+
+    // Move up one directory
+    const parentDir = dirname(currentDir);
+
+    // Stop if we can't go up anymore (reached root)
+    if (parentDir === currentDir) break;
+
+    currentDir = parentDir;
   }
+
+  return null;
 }
 
 /**
- * Get configuration with priority: defaults <- global <- project
- *
- * Priority order (highest to lowest):
- * 1. Project-level config (.gwtreerc, .gwtreerc.json, .gwtreerc.js, package.json)
- * 2. Global user-level config (~/.config/gwtree/config.json)
- * 3. Schema defaults
+ * Get configuration by searching for config files and parsing with Zod
+ * Returns defaults if no config file is found or parsing fails
  */
 export async function getConfig(): Promise<GWTreeConfig> {
-  // 1. Get defaults from schema
-  const defaults = configSchema.parse({});
+  try {
+    const configPath = await findConfigFile(process.cwd());
 
-  // 2. Get global config from ~/.config/gwtree/config.json
-  const globalConfig = await readGlobalConfig();
+    if (!configPath) {
+      // No config file found, return defaults
+      return configSchema.parse({});
+    }
 
-  // 3. Get project config from cosmiconfig (raw, not validated yet)
-  const explorer = cosmiconfig('gwtree');
-  const result = await explorer.search();
-
-  let projectConfig: Record<string, any> = {};
-  if (result?.config) {
-    projectConfig = result.config;
-  }
-
-  // 4. Merge: defaults <- global <- project (using raw configs)
-  const merged = {
-    ...defaults,
-    ...globalConfig,
-    ...projectConfig,
-  };
-
-  // Handle hooks separately - project hooks completely override global (no array merging)
-  if (projectConfig.hooks !== undefined) {
-    merged.hooks = projectConfig.hooks;
-  } else if (globalConfig.hooks !== undefined) {
-    merged.hooks = globalConfig.hooks;
-  }
-
-  // 5. Final validation and return
-  const { success, data, error } = await configSchema.safeParseAsync(merged);
-  if (!success) {
-    console.warn(
-      'Merged config validation failed, using defaults:',
-      error.message,
-    );
+    // Read and parse config file
+    const configData = await Bun.file(configPath).json();
+    return configSchema.parse(configData);
+  } catch (error) {
+    // If reading or parsing fails, return defaults
+    console.warn('Failed to load config, using defaults:');
     return configSchema.parse({});
   }
-  return data;
 }
 
 /**
