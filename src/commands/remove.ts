@@ -64,7 +64,25 @@ export async function removeWorktree() {
         worktreeChoice as string,
       ]);
       if (!removeResult.success) {
-        throw new Error(removeResult.stderr.toString());
+        s.stop('Failed to remove worktree');
+        const forceConfirm = await p.confirm({
+          message: 'Force remove? (worktree may have uncommitted changes)',
+          initialValue: false,
+        });
+        if (p.isCancel(forceConfirm) || !forceConfirm) {
+          throw new Error(removeResult.stderr.toString());
+        }
+        s.start('Force removing worktree...');
+        const forceResult = Bun.spawnSync([
+          'git',
+          'worktree',
+          'remove',
+          '--force',
+          worktreeChoice as string,
+        ]);
+        if (!forceResult.success) {
+          throw new Error(forceResult.stderr.toString());
+        }
       }
       s.stop('Worktree removed successfully!');
     } catch (error) {

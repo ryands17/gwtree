@@ -124,7 +124,7 @@ branch refs/heads/main
     exitSpy.mockRestore();
   });
 
-  it('should handle worktree removal failure', async () => {
+  it('should prompt force remove on failure, throw if user declines', async () => {
     const worktreeOutput = `worktree /home/user/repo
 HEAD abc1234
 branch refs/heads/main
@@ -140,14 +140,93 @@ branch refs/heads/feature
         stdout: Buffer.from(worktreeOutput),
         stderr: Buffer.from(''),
       })
-      .mockImplementation(() => {
-        throw new Error('Failed to remove worktree');
+      .mockReturnValueOnce({
+        success: false,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from('some error'),
       });
 
     spyOn(p, 'select').mockResolvedValueOnce('/home/user/repo-feature');
-    spyOn(p, 'confirm').mockResolvedValueOnce(true);
+    spyOn(p, 'confirm')
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
 
-    expect(removeWorktree()).rejects.toThrow('Failed to remove worktree');
+    await expect(removeWorktree()).rejects.toThrow('some error');
+  });
+
+  it('should force remove when user confirms', async () => {
+    const worktreeOutput = `worktree /home/user/repo
+HEAD abc1234
+branch refs/heads/main
+
+worktree /home/user/repo-feature
+HEAD def5678
+branch refs/heads/feature
+`;
+
+    mockSpawnSync
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(worktreeOutput),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: false,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from('dirty'),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      });
+
+    spyOn(p, 'select').mockResolvedValueOnce('/home/user/repo-feature');
+    spyOn(p, 'confirm').mockResolvedValueOnce(true).mockResolvedValueOnce(true);
+
+    await removeWorktree();
+
+    expect(mockSpawnSync).toHaveBeenCalledWith([
+      'git',
+      'worktree',
+      'remove',
+      '--force',
+      '/home/user/repo-feature',
+    ]);
+    expect(p.outro).toHaveBeenCalledWith('✓ Done');
+  });
+
+  it('should throw if force remove also fails', async () => {
+    const worktreeOutput = `worktree /home/user/repo
+HEAD abc1234
+branch refs/heads/main
+
+worktree /home/user/repo-feature
+HEAD def5678
+branch refs/heads/feature
+`;
+
+    mockSpawnSync
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(worktreeOutput),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: false,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from('dirty'),
+      })
+      .mockReturnValueOnce({
+        success: false,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from('force failed'),
+      });
+
+    spyOn(p, 'select').mockResolvedValueOnce('/home/user/repo-feature');
+    spyOn(p, 'confirm').mockResolvedValueOnce(true).mockResolvedValueOnce(true);
+
+    await expect(removeWorktree()).rejects.toThrow('force failed');
   });
 
   it('should parse worktrees without branch (detached HEAD)', async () => {

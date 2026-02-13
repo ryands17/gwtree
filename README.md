@@ -100,40 +100,19 @@ Unique branch names for each worktree
 
 ## Configuration
 
-GWTree supports two levels of configuration: **global** (user-level) and **project** (repository-level).
-
-### Global Configuration
-
-Create a global configuration file to set your preferred defaults across **all projects**:
-
-**Location (platform-specific):**
-
-- **macOS**: `~/.config/gwtree/config.json`
-- **Linux**: `~/.config/gwtree/config.json`
-
-**Example:**
-
-```json
-{
-  "defaultSuffix": "1",
-  "defaultEditor": "code",
-  "defaultBranchChoice": "current",
-  "namePattern": "{repo}-{branch}-wt-{suffix}"
-}
-```
+GWTree uses a project-level configuration file discovered by walking up from the current directory to your home directory (like gitconfig). The first matching file wins.
 
 ### Project Configuration
 
-Create a project-specific configuration file in your repository root to customize settings for that project:
+Create a configuration file anywhere in your project hierarchy:
 
-**Searched in order:**
+**Searched filenames (in order):**
 
 - `.gwtreerc`
-- `.gwtreerc.json`
-- `.gwtreerc.js`
-- `gwtree` field in `package.json`
+- `gwtree.json`
+- `.gwtree.json`
 
-**Example (`.gwtreerc.json`):**
+**Example (`gwtree.json`):**
 
 ```json
 {
@@ -143,29 +122,6 @@ Create a project-specific configuration file in your repository root to customiz
   "namePattern": "{repo}-{branch}-wt-{suffix}"
 }
 ```
-
-### Configuration Priority
-
-Settings are merged in this order (highest priority last):
-
-1. **Schema defaults** (built-in defaults)
-2. **Global config** (platform-specific location, see above)
-3. **Project config** (`.gwtreerc*` or `package.json`)
-
-Project settings **override** global settings, which override defaults.
-
-**Example:**
-
-If you have:
-
-- **Global config**: `{ "defaultSuffix": "global", "defaultEditor": "default" }`
-- **Project config**: `{ "defaultSuffix": "project" }`
-
-The final configuration will be:
-
-- `defaultSuffix`: `"project"` (from project)
-- `defaultEditor`: `"default"` (from global)
-- Other settings: schema defaults
 
 ### Available Options
 
