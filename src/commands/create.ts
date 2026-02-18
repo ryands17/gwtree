@@ -3,9 +3,22 @@ import chalk from 'chalk';
 import { basename, dirname, join } from 'node:path';
 import { copyHookFiles, getConfig, runHookCommands } from '../config';
 
-export async function createWorktree() {
+export interface CreateOptions {
+  branch?: string;
+  newBranch?: boolean;
+  name?: string;
+  suffix?: string;
+  editor?: string | false;
+}
+
+export async function createWorktree(options: CreateOptions = {}) {
   const userConfig = await getConfig();
-  p.intro('Create Git Worktree');
+
+  const interactive =
+    !options.branch ||
+    (!options.name && !options.suffix) ||
+    options.editor === undefined;
+  if (interactive) p.intro('Create Git Worktree');
 
   try {
     const gitRootResult = Bun.spawnSync([
@@ -40,97 +53,116 @@ export async function createWorktree() {
     const mainBranch =
       branches.find((b) => b === 'main' || b === 'master') || currentBranch;
 
-    const branchChoice = await p.select({
-      message: 'Branch:',
-      options: [
-        { value: mainBranch, label: mainBranch },
-        { value: 'new', label: 'Create new branch' },
-      ],
-      initialValue:
-        userConfig.defaultBranchChoice === 'new' ? 'new' : mainBranch,
-    });
-
-    if (p.isCancel(branchChoice)) {
-      p.cancel('Operation cancelled');
-      process.exit(0);
-    }
-
+    // --- Branch selection ---
     let branchName: string;
     let baseBranch: string;
+    let isNewBranch: boolean;
 
-    if (branchChoice === 'new') {
-      const newBranchName = await p.text({
-        message: 'New branch name:',
-        placeholder: `${currentBranch}-worktree`,
-        validate: (value) => {
-          if (!value) return 'Branch name is required';
-          if (branches.includes(value)) return 'Branch already exists';
-        },
+    if (options.branch) {
+      branchName = options.branch;
+      isNewBranch = !!options.newBranch || !branches.includes(options.branch);
+      baseBranch = isNewBranch ? currentBranch : options.branch;
+    } else {
+      const branchChoice = await p.select({
+        message: 'Branch:',
+        options: [
+          { value: mainBranch, label: mainBranch },
+          { value: 'new', label: 'Create new branch' },
+        ],
+        initialValue:
+          userConfig.defaultBranchChoice === 'new' ? 'new' : mainBranch,
       });
 
-      if (p.isCancel(newBranchName)) {
+      if (p.isCancel(branchChoice)) {
         p.cancel('Operation cancelled');
         process.exit(0);
       }
 
-      branchName = newBranchName as string;
-      baseBranch = currentBranch;
-    } else {
-      branchName = branchChoice as string;
-      baseBranch = branchChoice as string;
+      if (branchChoice === 'new') {
+        const newBranchName = await p.text({
+          message: 'New branch name:',
+          placeholder: `${currentBranch}-worktree`,
+          validate: (value) => {
+            if (!value) return 'Branch name is required';
+            if (branches.includes(value)) return 'Branch already exists';
+          },
+        });
+
+        if (p.isCancel(newBranchName)) {
+          p.cancel('Operation cancelled');
+          process.exit(0);
+        }
+
+        branchName = newBranchName as string;
+        baseBranch = currentBranch;
+        isNewBranch = true;
+      } else {
+        branchName = branchChoice as string;
+        baseBranch = branchChoice as string;
+        isNewBranch = false;
+      }
     }
 
-    const prefix = userConfig.namePattern
-      .replace('{repo}', repoName)
-      .replace('{branch}', branchName)
-      .replace('-{suffix}', '');
-
-    let suffix = await p.text({
-      message: `Worktree name: ${chalk.dim(prefix + '-')}`,
-      defaultValue: userConfig.defaultSuffix,
-      placeholder: `${userConfig.defaultSuffix} (ESC for full edit)`,
-    });
-
+    // --- Worktree name ---
     let worktreeName: string;
+    let suffixUsed: string | undefined;
 
-    if (p.isCancel(suffix)) {
-      suffix = userConfig.defaultSuffix;
-      const defaultName = `${repoName}-${branchName}`;
-
-      const customName = await p.text({
-        message: 'Custom name:',
-        defaultValue: defaultName,
-        placeholder: defaultName,
-      });
-
-      if (p.isCancel(customName)) {
-        p.cancel('Operation cancelled');
-        process.exit(0);
-      }
-
-      worktreeName = customName as string;
+    if (options.name) {
+      worktreeName = options.name;
     } else {
-      worktreeName = `${prefix}-${suffix}`;
+      const prefix = userConfig.namePattern
+        .replace('{repo}', repoName)
+        .replace('{branch}', branchName)
+        .replace('-{suffix}', '');
+
+      if (options.suffix !== undefined) {
+        suffixUsed = options.suffix;
+        worktreeName = `${prefix}-${options.suffix}`;
+      } else {
+        let suffix = await p.text({
+          message: `Worktree name: ${chalk.dim(prefix + '-')}`,
+          defaultValue: userConfig.defaultSuffix,
+          placeholder: `${userConfig.defaultSuffix} (ESC for full edit)`,
+        });
+
+        if (p.isCancel(suffix)) {
+          suffix = userConfig.defaultSuffix;
+          const defaultName = `${repoName}-${branchName}`;
+
+          const customName = await p.text({
+            message: 'Custom name:',
+            defaultValue: defaultName,
+            placeholder: defaultName,
+          });
+
+          if (p.isCancel(customName)) {
+            p.cancel('Operation cancelled');
+            process.exit(0);
+          }
+
+          worktreeName = customName as string;
+        } else {
+          suffixUsed = suffix as string;
+          worktreeName = `${prefix}-${suffix}`;
+        }
+      }
     }
 
     const worktreePath = join(parentDir, worktreeName);
 
     if (await Bun.file(worktreePath).exists()) {
-      p.cancel(`Directory ${worktreeName} already exists`);
+      if (interactive) p.cancel(`Directory ${worktreeName} already exists`);
+      else console.error(`Error: Directory ${worktreeName} already exists`);
       process.exit(1);
     }
 
-    if (p.isCancel(worktreeName)) {
-      p.cancel('Operation cancelled');
-      process.exit(0);
-    }
-
-    const s = p.spinner();
-    s.start('Creating worktree...');
+    // --- Create worktree ---
+    const s = interactive ? p.spinner() : null;
+    s?.start('Creating worktree...');
 
     try {
       let result;
-      if (branchChoice === 'new') {
+      if (isNewBranch) {
         result = Bun.spawnSync(
           [
             'git',
@@ -141,15 +173,13 @@ export async function createWorktree() {
             worktreePath,
             baseBranch,
           ],
-          {
-            cwd: gitRoot,
-          },
+          { cwd: gitRoot },
         );
       } else {
         let newBranchForWorktree = `${branchName}-${worktreeName || 'wt'}`;
         let counter = 1;
         while (branches.includes(newBranchForWorktree)) {
-          newBranchForWorktree = `${branchName}-${String(suffix) || 'wt'}-${counter}`;
+          newBranchForWorktree = `${branchName}-${String(suffixUsed) || 'wt'}-${counter}`;
           counter++;
         }
         result = Bun.spawnSync(
@@ -162,17 +192,17 @@ export async function createWorktree() {
             worktreePath,
             baseBranch,
           ],
-          {
-            cwd: gitRoot,
-          },
+          { cwd: gitRoot },
         );
       }
       if (!result.success) {
         throw new Error(result.stderr.toString());
       }
-      s.stop('Worktree created successfully!');
+      if (s) s.stop('Worktree created successfully!');
+      else console.log('Worktree created successfully!');
     } catch (error) {
-      s.stop('Failed to create worktree');
+      if (s) s.stop('Failed to create worktree');
+      else console.error('Failed to create worktree');
       throw error;
     }
 
@@ -181,60 +211,63 @@ export async function createWorktree() {
       const { copyFiles, runCommands } = userConfig.hooks.onCreate;
 
       if (copyFiles || runCommands) {
-        const hookSpinner = p.spinner();
-        hookSpinner.start('Running onCreate hooks...');
+        const hookSpinner = interactive ? p.spinner() : null;
+        hookSpinner?.start('Running onCreate hooks...');
 
         try {
-          // First copy files/directories
           if (copyFiles) {
-            p.log.info('Copying files...');
-
+            if (interactive) p.log.info('Copying files...');
             await copyHookFiles(copyFiles, {
               gitRoot,
               worktreePath,
               branchName,
             });
-
-            p.log.success('Files copied');
+            if (interactive) p.log.success('Files copied');
           }
 
-          // Then run commands
           if (runCommands) {
-            p.log.info('Running commands...');
-
+            if (interactive) p.log.info('Running commands...');
             await runHookCommands(runCommands, {
               worktreePath,
               branchName,
             });
-
-            p.log.success('Commands executed');
+            if (interactive) p.log.success('Commands executed');
           }
         } catch (error) {
           console.warn('Hook execution encountered errors:', error);
         } finally {
-          hookSpinner.stop('Hooks completed');
+          hookSpinner?.stop('Hooks completed');
         }
       }
     }
 
-    const editorChoice = await p.select({
-      message: 'Open in:',
-      options: [
-        { value: 'code', label: 'VS Code' },
-        { value: 'default', label: 'Default ($EDITOR)' },
-        { value: 'none', label: "Don't open" },
-      ],
-      initialValue: userConfig.defaultEditor,
-    });
+    // --- Editor ---
+    const editorChoice: string =
+      options.editor === false
+        ? 'none'
+        : options.editor !== undefined
+          ? options.editor
+          : await (async () => {
+              const choice = await p.select({
+                message: 'Open in:',
+                options: [
+                  { value: 'code', label: 'VS Code' },
+                  { value: 'default', label: 'Default ($EDITOR)' },
+                  { value: 'none', label: "Don't open" },
+                ],
+                initialValue: userConfig.defaultEditor,
+              });
 
-    if (p.isCancel(editorChoice)) {
-      p.outro(`Worktree created at: ${worktreePath}`);
-      process.exit(0);
-    }
+              if (p.isCancel(choice)) {
+                p.outro(`Worktree created at: ${worktreePath}`);
+                process.exit(0);
+              }
+              return choice as string;
+            })();
 
     if (editorChoice !== 'none') {
-      const s2 = p.spinner();
-      s2.start('Opening editor...');
+      const s2 = interactive ? p.spinner() : null;
+      s2?.start('Opening editor...');
 
       try {
         if (editorChoice === 'code') {
@@ -245,9 +278,9 @@ export async function createWorktree() {
             stdio: ['inherit', 'inherit', 'inherit'],
           });
         }
-        s2.stop('Editor opened!');
+        if (s2) s2.stop('Editor opened!');
       } catch (error) {
-        s2.stop('Failed to open editor');
+        if (s2) s2.stop('Failed to open editor');
         console.error(
           'Error:',
           error instanceof Error ? error.message : 'Unknown error',
@@ -255,13 +288,19 @@ export async function createWorktree() {
       }
     }
 
-    p.outro(`✓ Worktree ready at: ${worktreePath}\n  Branch: ${branchName}`);
+    if (interactive) {
+      p.outro(`✓ Worktree ready at: ${worktreePath}\n  Branch: ${branchName}`);
+    } else {
+      console.log(`Worktree ready at: ${worktreePath}`);
+      console.log(`Branch: ${branchName}`);
+    }
   } catch (error) {
     if (
       error instanceof Error &&
       error.message.includes('not a git repository')
     ) {
-      p.cancel('Error: Not in a git repository');
+      if (interactive) p.cancel('Error: Not in a git repository');
+      else console.error('Error: Not in a git repository');
       process.exit(1);
     }
     throw error;

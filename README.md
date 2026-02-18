@@ -65,6 +65,63 @@ gwtree remove
 
 <br />
 
+### Non-Interactive / CLI Mode
+
+All commands support CLI flags for scripting, CI, and automation. When sufficient flags are provided, interactive prompts are skipped.
+
+#### Create
+
+```bash
+# Fully non-interactive
+gwtree create --branch main --suffix 2 --no-editor
+
+# New branch, open in VS Code
+gwtree create --branch feat-login --new-branch --suffix 1 --editor code
+
+# Custom worktree name
+gwtree create --branch main --name my-worktree --no-editor
+
+# Partial flags — prompts only for missing values
+gwtree create --branch main
+```
+
+| Flag                | Description                                         |
+| ------------------- | --------------------------------------------------- |
+| `--branch <name>`   | Branch to use (existing) or create (new)            |
+| `--new-branch`      | Create the branch instead of using existing         |
+| `--name <name>`     | Worktree directory name (skips pattern)             |
+| `--suffix <suffix>` | Suffix for name pattern (uses config `namePattern`) |
+| `--editor <editor>` | Editor to open: `code` \| `default` \| `none`       |
+| `--no-editor`       | Shorthand for `--editor none`                       |
+
+#### List
+
+```bash
+# JSON output for scripting
+gwtree list --json
+gwtree list --json | jq '.[].branch'
+```
+
+| Flag     | Description                  |
+| -------- | ---------------------------- |
+| `--json` | Output worktree list as JSON |
+
+#### Remove
+
+```bash
+# Remove by path, name, or branch
+gwtree rm /path/to/worktree --force
+gwtree rm my-worktree --force
+gwtree rm feat-login --force
+```
+
+| Flag      | Description                                   |
+| --------- | --------------------------------------------- |
+| `[path]`  | Worktree path, directory name, or branch name |
+| `--force` | Skip confirmation, force-remove if needed     |
+
+<br />
+
 ---
 
 <br />
@@ -89,8 +146,11 @@ Copy files and run commands on worktree creation
 **Clean UX**  
 Dimmed prefixes, ESC for full control
 
-**Auto branch creation**  
+**Auto branch creation**
 Unique branch names for each worktree
+
+**Non-interactive CLI mode**
+CLI flags for scripting, CI, and automation
 
 <br />
 

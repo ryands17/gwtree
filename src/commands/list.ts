@@ -2,30 +2,45 @@ import * as p from '@clack/prompts';
 import chalk from 'chalk';
 import { basename } from 'node:path';
 
-export async function listWorktrees() {
+export interface ListOptions {
+  json?: boolean;
+}
+
+function parseWorktrees() {
+  const result = Bun.spawnSync(['git', 'worktree', 'list', '--porcelain']);
+  const output = result.stdout.toString();
+
+  const worktrees: { path: string; branch?: string; head?: string }[] = [];
+  const lines = output.trim().split('\n');
+  let current: any = {};
+
+  for (const line of lines) {
+    if (line.startsWith('worktree ')) {
+      if (current.path) worktrees.push(current);
+      current = { path: line.replace('worktree ', '') };
+    } else if (line.startsWith('branch ')) {
+      current.branch = line.replace('branch ', '').split('/').pop();
+    } else if (line.startsWith('HEAD ')) {
+      current.head = line.replace('HEAD ', '').substring(0, 7);
+    }
+  }
+  if (current.path) worktrees.push(current);
+
+  return worktrees;
+}
+
+export async function listWorktrees(options: ListOptions = {}) {
+  if (options.json) {
+    const worktrees = parseWorktrees();
+    console.log(JSON.stringify(worktrees, null, 2));
+    return;
+  }
+
   p.intro('Manage Worktrees');
 
   try {
     while (true) {
-      const result = Bun.spawnSync(['git', 'worktree', 'list', '--porcelain']);
-      const output = result.stdout.toString();
-
-      const worktrees = [];
-      const lines = output.trim().split('\n');
-      let current: any = {};
-
-      for (const line of lines) {
-        if (line.startsWith('worktree ')) {
-          if (current.path) worktrees.push(current);
-          current = { path: line.replace('worktree ', '') };
-        } else if (line.startsWith('branch ')) {
-          current.branch = line.replace('branch ', '').split('/').pop();
-        } else if (line.startsWith('HEAD ')) {
-          current.head = line.replace('HEAD ', '').substring(0, 7);
-        }
-      }
-      if (current.path) worktrees.push(current);
-
+      const worktrees = parseWorktrees();
       const nonMainWorktrees = worktrees.slice(1);
 
       if (nonMainWorktrees.length === 0) {

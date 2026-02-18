@@ -4,4 +4,5 @@ coverage
 .DS_Store
 *.log
 .env
-gwt*
+./gwt*
+.claude
