@@ -1,6 +1,6 @@
 {
   "name": "gwtree",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Git worktree manager for parallel development",
   "type": "module",
   "module": "src/index.ts",
@@ -31,7 +31,7 @@
   "bugs": {
     "url": "https://github.com/ryands17/gwtree/issues"
   },
-  "homepage": "https://github.com/ahmadawais/gwtree#readme",
+  "homepage": "https://github.com/ryands17/gwtree#readme",
   "engines": {
     "node": ">=22"
   },

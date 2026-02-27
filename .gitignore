@@ -6,3 +6,4 @@ coverage
 .env
 ./gwt*
 .claude
+.opencode

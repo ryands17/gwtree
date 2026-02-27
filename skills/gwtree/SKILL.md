@@ -13,14 +13,14 @@ description: Use when user asks to create, list, or remove git worktrees, or set
 gwtree create [flags]
 ```
 
-| Flag                | Description                                                                 |
-| ------------------- | --------------------------------------------------------------------------- |
-| `--branch <name>`   | Branch to use (existing) or create (new). **Required for non-interactive.** |
-| `--new-branch`      | Force-create the branch even if it exists                                   |
-| `--name <name>`     | Full worktree directory name (skips name pattern)                           |
-| `--suffix <suffix>` | Suffix appended to auto-generated name                                      |
-| `--editor <editor>` | Open after create: `code`, `default` (uses `$EDITOR`), or `none`            |
-| `--no-editor`       | Do not open any editor                                                      |
+| Flag                | Description                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `--branch <name>`   | Branch to checkout directly (if exists) or create (if not). **Required for non-interactive.** |
+| `--new-branch`      | Force-create the branch even if it exists                                                     |
+| `--name <name>`     | Full worktree directory name (skips name pattern)                                             |
+| `--suffix <suffix>` | Suffix appended to auto-generated name                                                        |
+| `--editor <editor>` | Open after create: `code`, `default` (uses `$EDITOR`), or `none`                              |
+| `--no-editor`       | Do not open any editor                                                                        |
 
 **Non-interactive requires:** `--branch` + (`--name` OR `--suffix`) + (`--editor`/`--no-editor`)
 
@@ -30,7 +30,10 @@ gwtree create [flags]
 # New branch, VS Code, fully non-interactive
 gwtree create --branch feat/auth --new-branch --suffix wt --editor code
 
-# Existing branch, no editor
+# Existing branch, direct checkout (no new branch created)
+gwtree create --branch feat-login --suffix 1 --no-editor
+
+# Existing branch (main), derived branch
 gwtree create --branch main --suffix review --no-editor
 
 # Custom full name

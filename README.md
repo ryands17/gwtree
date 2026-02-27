@@ -41,7 +41,7 @@ gwtree
 
 Interactive prompts guide you through:
 
-1. **Branch** — Select main/master or create new branch
+1. **Branch** — Select main/master, use an existing branch, or create new branch
 2. **Worktree name** — Quick edit suffix or press ESC for full customization
 3. **Open in** — Choose VS Code, default editor, or skip
 
@@ -75,6 +75,9 @@ All commands support CLI flags for scripting, CI, and automation. When sufficien
 # Fully non-interactive
 gwtree create --branch main --suffix 2 --no-editor
 
+# Existing branch, direct checkout
+gwtree create --branch feat-login --suffix 1 --no-editor
+
 # New branch, open in VS Code
 gwtree create --branch feat-login --new-branch --suffix 1 --editor code
 
@@ -85,14 +88,14 @@ gwtree create --branch main --name my-worktree --no-editor
 gwtree create --branch main
 ```
 
-| Flag                | Description                                         |
-| ------------------- | --------------------------------------------------- |
-| `--branch <name>`   | Branch to use (existing) or create (new)            |
-| `--new-branch`      | Create the branch instead of using existing         |
-| `--name <name>`     | Worktree directory name (skips pattern)             |
-| `--suffix <suffix>` | Suffix for name pattern (uses config `namePattern`) |
-| `--editor <editor>` | Editor to open: `code` \| `default` \| `none`       |
-| `--no-editor`       | Shorthand for `--editor none`                       |
+| Flag                | Description                                                |
+| ------------------- | ---------------------------------------------------------- |
+| `--branch <name>`   | Branch to checkout directly (if exists) or create (if not) |
+| `--new-branch`      | Create the branch instead of using existing                |
+| `--name <name>`     | Worktree directory name (skips pattern)                    |
+| `--suffix <suffix>` | Suffix for name pattern (uses config `namePattern`)        |
+| `--editor <editor>` | Editor to open: `code` \| `default` \| `none`              |
+| `--no-editor`       | Shorthand for `--editor none`                              |
 
 #### List
 

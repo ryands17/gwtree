@@ -57,16 +57,51 @@ export async function createWorktree(options: CreateOptions = {}) {
     let branchName: string;
     let baseBranch: string;
     let isNewBranch: boolean;
+    let isDirectCheckout = false;
+
+    const checkWorktreeInUse = (branch: string): string | null => {
+      const wtListResult = Bun.spawnSync(
+        ['git', 'worktree', 'list', '--porcelain'],
+        { cwd: gitRoot },
+      );
+      const wtOutput = wtListResult.stdout.toString();
+      const entries = wtOutput.split('\n\n').filter(Boolean);
+      for (const entry of entries) {
+        const branchMatch = entry.match(/branch refs\/heads\/(.+)/);
+        if (branchMatch && branchMatch[1] === branch) {
+          const pathMatch = entry.match(/^worktree (.+)/m);
+          return pathMatch ? pathMatch[1] : 'unknown';
+        }
+      }
+      return null;
+    };
 
     if (options.branch) {
-      branchName = options.branch;
-      isNewBranch = !!options.newBranch || !branches.includes(options.branch);
-      baseBranch = isNewBranch ? currentBranch : options.branch;
+      const branchExists = branches.includes(options.branch);
+      if (branchExists && !options.newBranch) {
+        const inUse = checkWorktreeInUse(options.branch);
+        if (inUse) {
+          const msg = `Worktree already exists for branch ${options.branch} (${inUse})`;
+          if (interactive) p.cancel(msg);
+          else console.error(`Error: ${msg}`);
+          process.exit(1);
+        }
+        Bun.spawnSync(['git', 'fetch', '--all'], { cwd: gitRoot });
+        branchName = options.branch;
+        baseBranch = options.branch;
+        isNewBranch = false;
+        isDirectCheckout = true;
+      } else {
+        branchName = options.branch;
+        isNewBranch = !!options.newBranch || !branchExists;
+        baseBranch = isNewBranch ? currentBranch : options.branch;
+      }
     } else {
       const branchChoice = await p.select({
         message: 'Branch:',
         options: [
           { value: mainBranch, label: mainBranch },
+          { value: 'existing', label: 'Use existing branch' },
           { value: 'new', label: 'Create new branch' },
         ],
         initialValue:
@@ -78,7 +113,59 @@ export async function createWorktree(options: CreateOptions = {}) {
         process.exit(0);
       }
 
-      if (branchChoice === 'new') {
+      if (branchChoice === 'existing') {
+        const existingBranchName = await p.text({
+          message: 'Branch name:',
+          placeholder: 'existing-branch-name',
+          validate: (value) => {
+            if (!value) return 'Branch name is required';
+          },
+        });
+
+        if (p.isCancel(existingBranchName)) {
+          p.cancel('Operation cancelled');
+          process.exit(0);
+        }
+
+        const name = existingBranchName as string;
+
+        const inUse = checkWorktreeInUse(name);
+        if (inUse) {
+          p.cancel(`Worktree already exists for branch ${name} (${inUse})`);
+          process.exit(1);
+        }
+
+        const fetchSpinner = p.spinner();
+        fetchSpinner.start('Fetching branches...');
+        Bun.spawnSync(['git', 'fetch', '--all'], { cwd: gitRoot });
+        fetchSpinner.stop('Fetched');
+
+        const remoteBranchesResult = Bun.spawnSync(
+          ['git', 'branch', '-r', '--format=%(refname:short)'],
+          { cwd: gitRoot },
+        );
+        const remoteBranches = remoteBranchesResult.stdout
+          .toString()
+          .trim()
+          .split('\n')
+          .filter(Boolean);
+
+        const existsLocally = branches.includes(name);
+        const existsRemotely = remoteBranches.some(
+          (rb) => rb === `origin/${name}`,
+        );
+
+        if (existsLocally || existsRemotely) {
+          branchName = name;
+          baseBranch = name;
+          isNewBranch = false;
+          isDirectCheckout = true;
+        } else {
+          branchName = name;
+          baseBranch = currentBranch;
+          isNewBranch = true;
+        }
+      } else if (branchChoice === 'new') {
         const newBranchName = await p.text({
           message: 'New branch name:',
           placeholder: `${currentBranch}-worktree`,
@@ -162,7 +249,12 @@ export async function createWorktree(options: CreateOptions = {}) {
 
     try {
       let result;
-      if (isNewBranch) {
+      if (isDirectCheckout) {
+        result = Bun.spawnSync(
+          ['git', 'worktree', 'add', worktreePath, branchName],
+          { cwd: gitRoot },
+        );
+      } else if (isNewBranch) {
         result = Bun.spawnSync(
           [
             'git',
