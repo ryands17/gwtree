@@ -1,10 +1,11 @@
 import * as p from '@clack/prompts';
-import { parseWorktrees, findWorktree } from '../git';
+import { parseWorktrees, findWorktree, deleteBranch } from '../git';
 import { handleGitError } from '../utils';
 
 export interface RemoveOptions {
   path?: string;
   force?: boolean;
+  deleteBranch?: boolean;
 }
 
 export async function removeWorktree(options: RemoveOptions = {}) {
@@ -60,6 +61,10 @@ export async function removeWorktree(options: RemoveOptions = {}) {
       }
     }
 
+    // Look up the branch before removing
+    const selectedWorktree = worktrees.find((wt) => wt.path === worktreeChoice);
+    const branch = selectedWorktree?.branch;
+
     // --- Remove ---
     const s = interactive ? p.spinner() : null;
     s?.start('Removing worktree...');
@@ -112,6 +117,32 @@ export async function removeWorktree(options: RemoveOptions = {}) {
       if (s) s.stop('Failed to remove worktree');
       else console.error('Failed to remove worktree');
       throw error;
+    }
+
+    // --- Delete branch ---
+    if (branch && branch !== 'main' && branch !== 'master') {
+      let shouldDelete = false;
+
+      if (interactive && !options.deleteBranch) {
+        const confirmDelete = await p.confirm({
+          message: `Also delete branch ${branch}?`,
+          initialValue: false,
+        });
+        shouldDelete = !p.isCancel(confirmDelete) && !!confirmDelete;
+      } else if (options.deleteBranch) {
+        shouldDelete = true;
+      }
+
+      if (shouldDelete) {
+        try {
+          deleteBranch(branch);
+          if (interactive) p.log.success(`Branch ${branch} deleted`);
+          else console.log(`Branch ${branch} deleted`);
+        } catch (error) {
+          if (interactive) p.log.error(`Failed to delete branch ${branch}`);
+          else console.error(`Failed to delete branch ${branch}`);
+        }
+      }
     }
 
     if (interactive) p.outro('✓ Done');

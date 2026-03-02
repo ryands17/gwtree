@@ -59,6 +59,14 @@ export function findWorktree(
   return undefined;
 }
 
+export function deleteBranch(branch: string, cwd?: string): void {
+  const args = ['git', 'branch', '-D', branch];
+  const result = cwd ? Bun.spawnSync(args, { cwd }) : Bun.spawnSync(args);
+  if (!result.success) {
+    throw new Error(result.stderr.toString());
+  }
+}
+
 export function getGitRoot(): string {
   const result = Bun.spawnSync(['git', 'rev-parse', '--show-toplevel']);
   if (!result.success) {

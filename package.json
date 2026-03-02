@@ -1,6 +1,6 @@
 {
   "name": "gwtree",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Git worktree manager for parallel development",
   "type": "module",
   "module": "src/index.ts",

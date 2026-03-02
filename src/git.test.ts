@@ -11,6 +11,7 @@ import {
   parseWorktrees,
   findWorktree,
   checkWorktreeInUse,
+  deleteBranch,
   getGitRoot,
 } from './git';
 
@@ -162,6 +163,62 @@ describe('checkWorktreeInUse', () => {
     });
 
     expect(checkWorktreeInUse('feature')).toBeNull();
+  });
+});
+
+describe('deleteBranch', () => {
+  let mockSpawnSync: any;
+
+  beforeEach(() => {
+    mockSpawnSync = spyOn(Bun, 'spawnSync');
+  });
+
+  afterEach(() => {
+    mock.restore();
+  });
+
+  it('should call git branch -D with the branch name', () => {
+    mockSpawnSync.mockReturnValue({
+      success: true,
+      stdout: Buffer.from(''),
+      stderr: Buffer.from(''),
+    });
+
+    deleteBranch('feature');
+
+    expect(mockSpawnSync).toHaveBeenCalledWith([
+      'git',
+      'branch',
+      '-D',
+      'feature',
+    ]);
+  });
+
+  it('should pass cwd when provided', () => {
+    mockSpawnSync.mockReturnValue({
+      success: true,
+      stdout: Buffer.from(''),
+      stderr: Buffer.from(''),
+    });
+
+    deleteBranch('feature', '/some/dir');
+
+    expect(mockSpawnSync).toHaveBeenCalledWith(
+      ['git', 'branch', '-D', 'feature'],
+      { cwd: '/some/dir' },
+    );
+  });
+
+  it('should throw on failure', () => {
+    mockSpawnSync.mockReturnValue({
+      success: false,
+      stdout: Buffer.from(''),
+      stderr: Buffer.from('error: branch not found'),
+    });
+
+    expect(() => deleteBranch('nonexistent')).toThrow(
+      'error: branch not found',
+    );
   });
 });
 

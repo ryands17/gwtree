@@ -28,7 +28,7 @@ gwtree create [flags]
 
 ```bash
 # New branch, VS Code, fully non-interactive
-gwtree create --branch feat/auth --new-branch --suffix wt --editor code
+gwtree create --branch feat/auth --new-branch --suffix 1 --editor code
 
 # Existing branch, direct checkout (no new branch created)
 gwtree create --branch feat-login --suffix 1 --no-editor
@@ -67,18 +67,22 @@ gwtree list --json | jq -r '.[1].branch'
 ## remove / rm
 
 ```bash
-gwtree remove [path] [--force]
-gwtree rm [path] [--force]
+gwtree remove [path] [--force] [--delete-branch]
+gwtree rm [path] [--force] [--delete-branch]
 ```
 
-| Arg/Flag  | Description                                                                               |
-| --------- | ----------------------------------------------------------------------------------------- |
-| `[path]`  | Match by full path, directory basename, or branch name. **Required for non-interactive.** |
-| `--force` | Skip confirmation prompt; also auto-force-removes if worktree has uncommitted changes     |
+| Arg/Flag          | Description                                                                               |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| `[path]`          | Match by full path, directory basename, or branch name. **Required for non-interactive.** |
+| `--force`         | Skip confirmation prompt; also auto-force-removes if worktree has uncommitted changes     |
+| `--delete-branch` | Also delete the associated local git branch (skips main/master)                           |
 
 ```bash
 # Remove by branch name, no prompts
 gwtree remove feat/auth --force
+
+# Remove worktree and delete the branch
+gwtree remove feat/auth --force --delete-branch
 
 # Remove by directory name
 gwtree remove myrepo-auth-wt --force
@@ -86,7 +90,7 @@ gwtree remove myrepo-auth-wt --force
 # Remove by full path
 gwtree remove /Users/ryan/projects/myrepo-auth-wt --force
 
-# Interactive (no args) — shows TUI picker
+# Interactive (no args) — shows TUI picker, prompts for branch deletion
 gwtree remove
 ```
 
@@ -102,6 +106,6 @@ gwtree create --branch pr/456 --suffix review --no-editor
 # List all worktrees, extract paths for a script
 PATHS=$(gwtree list --json | jq -r '.[].path')
 
-# Remove all non-main worktrees by piping list --json
-gwtree list --json | jq -r '.[1:][].branch' | xargs -I{} gwtree remove {} --force
+# Remove all non-main worktrees and their branches
+gwtree list --json | jq -r '.[1:][].branch' | xargs -I{} gwtree remove {} --force --delete-branch
 ```

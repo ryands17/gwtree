@@ -116,12 +116,16 @@ gwtree list --json | jq '.[].branch'
 gwtree rm /path/to/worktree --force
 gwtree rm my-worktree --force
 gwtree rm feat-login --force
+
+# Remove worktree and delete the branch
+gwtree rm feat-login --force --delete-branch
 ```
 
-| Flag      | Description                                   |
-| --------- | --------------------------------------------- |
-| `[path]`  | Worktree path, directory name, or branch name |
-| `--force` | Skip confirmation, force-remove if needed     |
+| Flag              | Description                                   |
+| ----------------- | --------------------------------------------- |
+| `[path]`          | Worktree path, directory name, or branch name |
+| `--force`         | Skip confirmation, force-remove if needed     |
+| `--delete-branch` | Also delete the associated local git branch   |
 
 <br />
 

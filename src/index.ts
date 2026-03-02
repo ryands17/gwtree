@@ -58,6 +58,7 @@ program
   .description('Remove a git worktree')
   .argument('[path]', 'Worktree path, directory name, or branch name')
   .option('--force', 'Force removal without confirmation')
+  .option('--delete-branch', 'Also delete the associated git branch')
   .action(async (path, opts) => {
     if (!path && !isNonInteractive(opts)) console.log(banner);
     await removeWorktree({ ...opts, path });
