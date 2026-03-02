@@ -2,6 +2,12 @@ import * as p from '@clack/prompts';
 import chalk from 'chalk';
 import { basename, dirname, join } from 'node:path';
 import { copyHookFiles, getConfig, runHookCommands } from '../config';
+import { getGitRoot, checkWorktreeInUse } from '../git';
+import {
+  sanitizeForFolder,
+  validateFolderName,
+  handleGitError,
+} from '../utils';
 
 export interface CreateOptions {
   branch?: string;
@@ -21,15 +27,7 @@ export async function createWorktree(options: CreateOptions = {}) {
   if (interactive) p.intro('Create Git Worktree');
 
   try {
-    const gitRootResult = Bun.spawnSync([
-      'git',
-      'rev-parse',
-      '--show-toplevel',
-    ]);
-    if (!gitRootResult.success) {
-      throw new Error('not a git repository');
-    }
-    const gitRoot = gitRootResult.stdout.toString().trim();
+    const gitRoot = getGitRoot();
 
     const repoName = basename(gitRoot);
     const parentDir = dirname(gitRoot);
@@ -59,27 +57,10 @@ export async function createWorktree(options: CreateOptions = {}) {
     let isNewBranch: boolean;
     let isDirectCheckout = false;
 
-    const checkWorktreeInUse = (branch: string): string | null => {
-      const wtListResult = Bun.spawnSync(
-        ['git', 'worktree', 'list', '--porcelain'],
-        { cwd: gitRoot },
-      );
-      const wtOutput = wtListResult.stdout.toString();
-      const entries = wtOutput.split('\n\n').filter(Boolean);
-      for (const entry of entries) {
-        const branchMatch = entry.match(/branch refs\/heads\/(.+)/);
-        if (branchMatch && branchMatch[1] === branch) {
-          const pathMatch = entry.match(/^worktree (.+)/m);
-          return pathMatch ? pathMatch[1] : 'unknown';
-        }
-      }
-      return null;
-    };
-
     if (options.branch) {
       const branchExists = branches.includes(options.branch);
       if (branchExists && !options.newBranch) {
-        const inUse = checkWorktreeInUse(options.branch);
+        const inUse = checkWorktreeInUse(options.branch, gitRoot);
         if (inUse) {
           const msg = `Worktree already exists for branch ${options.branch} (${inUse})`;
           if (interactive) p.cancel(msg);
@@ -129,7 +110,7 @@ export async function createWorktree(options: CreateOptions = {}) {
 
         const name = existingBranchName as string;
 
-        const inUse = checkWorktreeInUse(name);
+        const inUse = checkWorktreeInUse(name, gitRoot);
         if (inUse) {
           p.cancel(`Worktree already exists for branch ${name} (${inUse})`);
           process.exit(1);
@@ -195,14 +176,26 @@ export async function createWorktree(options: CreateOptions = {}) {
     let suffixUsed: string | undefined;
 
     if (options.name) {
+      const nameError = validateFolderName(options.name);
+      if (nameError) {
+        if (interactive) p.cancel(nameError);
+        else console.error(`Error: ${nameError}`);
+        process.exit(1);
+      }
       worktreeName = options.name;
     } else {
       const prefix = userConfig.namePattern
         .replace('{repo}', repoName)
-        .replace('{branch}', branchName)
+        .replace('{branch}', sanitizeForFolder(branchName))
         .replace('-{suffix}', '');
 
       if (options.suffix !== undefined) {
+        const suffixError = validateFolderName(options.suffix);
+        if (suffixError) {
+          if (interactive) p.cancel(suffixError);
+          else console.error(`Error: ${suffixError}`);
+          process.exit(1);
+        }
         suffixUsed = options.suffix;
         worktreeName = `${prefix}-${options.suffix}`;
       } else {
@@ -210,16 +203,18 @@ export async function createWorktree(options: CreateOptions = {}) {
           message: `Worktree name: ${chalk.dim(prefix + '-')}`,
           defaultValue: userConfig.defaultSuffix,
           placeholder: `${userConfig.defaultSuffix} (ESC for full edit)`,
+          validate: validateFolderName,
         });
 
         if (p.isCancel(suffix)) {
           suffix = userConfig.defaultSuffix;
-          const defaultName = `${repoName}-${branchName}`;
+          const defaultName = `${repoName}-${sanitizeForFolder(branchName)}`;
 
           const customName = await p.text({
             message: 'Custom name:',
             defaultValue: defaultName,
             placeholder: defaultName,
+            validate: validateFolderName,
           });
 
           if (p.isCancel(customName)) {
@@ -387,14 +382,6 @@ export async function createWorktree(options: CreateOptions = {}) {
       console.log(`Branch: ${branchName}`);
     }
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes('not a git repository')
-    ) {
-      if (interactive) p.cancel('Error: Not in a git repository');
-      else console.error('Error: Not in a git repository');
-      process.exit(1);
-    }
-    throw error;
+    handleGitError(error, interactive);
   }
 }

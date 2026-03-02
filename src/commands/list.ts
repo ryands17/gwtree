@@ -1,32 +1,11 @@
 import * as p from '@clack/prompts';
 import chalk from 'chalk';
 import { basename } from 'node:path';
+import { parseWorktrees } from '../git';
+import { handleGitError } from '../utils';
 
 export interface ListOptions {
   json?: boolean;
-}
-
-function parseWorktrees() {
-  const result = Bun.spawnSync(['git', 'worktree', 'list', '--porcelain']);
-  const output = result.stdout.toString();
-
-  const worktrees: { path: string; branch?: string; head?: string }[] = [];
-  const lines = output.trim().split('\n');
-  let current: any = {};
-
-  for (const line of lines) {
-    if (line.startsWith('worktree ')) {
-      if (current.path) worktrees.push(current);
-      current = { path: line.replace('worktree ', '') };
-    } else if (line.startsWith('branch ')) {
-      current.branch = line.replace('branch ', '').split('/').pop();
-    } else if (line.startsWith('HEAD ')) {
-      current.head = line.replace('HEAD ', '').substring(0, 7);
-    }
-  }
-  if (current.path) worktrees.push(current);
-
-  return worktrees;
 }
 
 export async function listWorktrees(options: ListOptions = {}) {
@@ -94,13 +73,6 @@ export async function listWorktrees(options: ListOptions = {}) {
       }
     }
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes('not a git repository')
-    ) {
-      p.cancel('Error: Not in a git repository');
-      process.exit(1);
-    }
-    throw error;
+    handleGitError(error, true);
   }
 }

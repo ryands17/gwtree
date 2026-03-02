@@ -7,3 +7,4 @@ coverage
 ./gwt*
 .claude
 .opencode
+plans/

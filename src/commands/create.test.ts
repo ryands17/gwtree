@@ -167,9 +167,11 @@ describe('createWorktree', () => {
 
     spyOn(p, 'select').mockResolvedValueOnce('new');
 
+    let branchValidateCalled = false;
     spyOn(p, 'text').mockImplementation((opts: any) => {
-      if (opts.validate) {
+      if (opts.validate && opts.message === 'New branch name:') {
         expect(opts.validate('')).toBe('Branch name is required');
+        branchValidateCalled = true;
       }
       return Promise.resolve('test-branch');
     });
@@ -181,6 +183,7 @@ describe('createWorktree', () => {
 
     await createWorktree();
 
+    expect(branchValidateCalled).toBe(true);
     exitSpy.mockRestore();
   });
 
@@ -204,9 +207,11 @@ describe('createWorktree', () => {
 
     spyOn(p, 'select').mockResolvedValueOnce('new');
 
+    let branchValidateCalled = false;
     spyOn(p, 'text').mockImplementation((opts: any) => {
-      if (opts.validate) {
+      if (opts.validate && opts.message === 'New branch name:') {
         expect(opts.validate('existing')).toBe('Branch already exists');
+        branchValidateCalled = true;
       }
       return Promise.resolve('test-branch');
     });
@@ -218,6 +223,7 @@ describe('createWorktree', () => {
 
     await createWorktree();
 
+    expect(branchValidateCalled).toBe(true);
     exitSpy.mockRestore();
   });
 
@@ -588,6 +594,208 @@ describe('createWorktree', () => {
     );
     expect(worktreeAddCall).toBeDefined();
     expect(worktreeAddCall[0]).toContain('nonexistent-branch');
+  });
+
+  it('should sanitize slashes in branch name for folder name', async () => {
+    mockSpawnSync
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('/home/user/repo\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\nfeature/login\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(
+          'worktree /home/user/repo\nbranch refs/heads/main\n\n',
+        ),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('origin/main\norigin/feature/login\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      });
+
+    spyOn(p, 'select')
+      .mockResolvedValueOnce('existing')
+      .mockResolvedValueOnce('none');
+    spyOn(p, 'text')
+      .mockResolvedValueOnce('feature/login')
+      .mockResolvedValueOnce('test');
+
+    await createWorktree();
+
+    const worktreeAddCall = mockSpawnSync.mock.calls.find(
+      (call: any) =>
+        Array.isArray(call[0]) &&
+        call[0][0] === 'git' &&
+        call[0][1] === 'worktree' &&
+        call[0][2] === 'add',
+    );
+    expect(worktreeAddCall).toBeDefined();
+    // The path should contain feature-login, not feature/login
+    const path = worktreeAddCall[0][3];
+    expect(path).toContain('feature-login');
+    expect(path).not.toContain('feature/login');
+  });
+
+  it('should sanitize multiple slashes in branch name', async () => {
+    mockSpawnSync
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('/home/user/repo\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\nfeature/team/login\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(
+          'worktree /home/user/repo\nbranch refs/heads/main\n\n',
+        ),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('origin/main\norigin/feature/team/login\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      });
+
+    spyOn(p, 'select')
+      .mockResolvedValueOnce('existing')
+      .mockResolvedValueOnce('none');
+    spyOn(p, 'text')
+      .mockResolvedValueOnce('feature/team/login')
+      .mockResolvedValueOnce('test');
+
+    await createWorktree();
+
+    const worktreeAddCall = mockSpawnSync.mock.calls.find(
+      (call: any) =>
+        Array.isArray(call[0]) &&
+        call[0][0] === 'git' &&
+        call[0][1] === 'worktree' &&
+        call[0][2] === 'add',
+    );
+    expect(worktreeAddCall).toBeDefined();
+    const path = worktreeAddCall[0][3];
+    expect(path).toContain('feature-team-login');
+  });
+
+  it('should reject --name with invalid folder characters', async () => {
+    mockSpawnSync
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('/home/user/repo\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      });
+
+    const exitSpy = spyOn(process, 'exit').mockImplementation(
+      () => undefined as never,
+    );
+    const consoleErrorSpy = spyOn(console, 'error').mockImplementation(
+      () => {},
+    );
+
+    await createWorktree({
+      branch: 'main',
+      name: 'bad/name',
+      editor: false,
+    });
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('invalid folder characters'),
+    );
+    exitSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('should reject --suffix with invalid folder characters', async () => {
+    mockSpawnSync
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('/home/user/repo\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      })
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      });
+
+    const exitSpy = spyOn(process, 'exit').mockImplementation(
+      () => undefined as never,
+    );
+    const consoleErrorSpy = spyOn(console, 'error').mockImplementation(
+      () => {},
+    );
+
+    await createWorktree({
+      branch: 'main',
+      suffix: 'bad/suffix',
+      editor: false,
+    });
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('invalid folder characters'),
+    );
+    exitSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
   });
 
   it('should create unique branch name when branch exists', async () => {
