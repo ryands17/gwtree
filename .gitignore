@@ -5,6 +5,6 @@ coverage
 *.log
 .env
 ./gwt*
-.claude
+.claude/settings.local.json
 .opencode
 plans/
