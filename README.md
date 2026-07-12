@@ -41,7 +41,7 @@ gwtree
 
 Interactive prompts guide you through:
 
-1. **Branch** — Select main/master, use an existing branch, or create new branch
+1. **Branch** — Select main/master, or enter a branch name (uses it if it exists, creates it if not)
 2. **Worktree name** — Quick edit suffix or press ESC for full customization
 3. **Open in** — Choose VS Code, default editor, or skip
 
@@ -194,7 +194,7 @@ Create a configuration file anywhere in your project hierarchy:
 
 | Option                | Type                                | Default                         | Description              |
 | --------------------- | ----------------------------------- | ------------------------------- | ------------------------ |
-| `defaultBranchChoice` | `"current"` \| `"new"`              | `"current"`                     | Default branch selection |
+| `defaultBranchChoice` | `"current"` \| `"from-branch"`      | `"current"`                     | Default branch selection |
 | `defaultSuffix`       | `string`                            | `"1"`                           | Default worktree suffix  |
 | `defaultOpenEditor`   | `boolean`                           | `true`                          | Prompt to open editor    |
 | `defaultEditor`       | `"code"` \| `"default"` \| `"none"` | `"code"`                        | Default editor choice    |

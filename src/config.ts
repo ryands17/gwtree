@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 // Zod schema with defaults
 const configSchema = z.object({
-  defaultBranchChoice: z.enum(['current', 'new']).default('current'),
+  defaultBranchChoice: z.enum(['current', 'from-branch']).default('current'),
   defaultSuffix: z.string().default('1'),
   defaultOpenEditor: z.boolean().default(true),
   defaultEditor: z.enum(['code', 'default', 'none']).default('code'),

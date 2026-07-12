@@ -75,7 +75,7 @@ describe('getConfig', () => {
   it('should load full custom configuration', async () => {
     mockConfigExists = true;
     mockConfigContent = {
-      defaultBranchChoice: 'new',
+      defaultBranchChoice: 'from-branch',
       defaultSuffix: 'dev',
       defaultOpenEditor: false,
       defaultEditor: 'default',
@@ -85,7 +85,7 @@ describe('getConfig', () => {
     const cfg = await getConfig();
 
     expect(cfg).toEqual({
-      defaultBranchChoice: 'new',
+      defaultBranchChoice: 'from-branch',
       defaultSuffix: 'dev',
       defaultOpenEditor: false,
       defaultEditor: 'default',

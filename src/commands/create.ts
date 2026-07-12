@@ -82,11 +82,12 @@ export async function createWorktree(options: CreateOptions = {}) {
         message: 'Branch:',
         options: [
           { value: mainBranch, label: mainBranch },
-          { value: 'existing', label: 'Use existing branch' },
-          { value: 'new', label: 'Create new branch' },
+          { value: 'from-branch', label: 'From branch' },
         ],
         initialValue:
-          userConfig.defaultBranchChoice === 'new' ? 'new' : mainBranch,
+          userConfig.defaultBranchChoice === 'from-branch'
+            ? 'from-branch'
+            : mainBranch,
       });
 
       if (p.isCancel(branchChoice)) {
@@ -94,21 +95,21 @@ export async function createWorktree(options: CreateOptions = {}) {
         process.exit(0);
       }
 
-      if (branchChoice === 'existing') {
-        const existingBranchName = await p.text({
+      if (branchChoice === 'from-branch') {
+        const enteredBranchName = await p.text({
           message: 'Branch name:',
-          placeholder: 'existing-branch-name',
+          placeholder: `${currentBranch}-worktree`,
           validate: (value) => {
             if (!value) return 'Branch name is required';
           },
         });
 
-        if (p.isCancel(existingBranchName)) {
+        if (p.isCancel(enteredBranchName)) {
           p.cancel('Operation cancelled');
           process.exit(0);
         }
 
-        const name = existingBranchName as string;
+        const name = enteredBranchName as string;
 
         const inUse = checkWorktreeInUse(name, gitRoot);
         if (inUse) {
@@ -146,24 +147,6 @@ export async function createWorktree(options: CreateOptions = {}) {
           baseBranch = currentBranch;
           isNewBranch = true;
         }
-      } else if (branchChoice === 'new') {
-        const newBranchName = await p.text({
-          message: 'New branch name:',
-          placeholder: `${currentBranch}-worktree`,
-          validate: (value) => {
-            if (!value) return 'Branch name is required';
-            if (branches.includes(value)) return 'Branch already exists';
-          },
-        });
-
-        if (p.isCancel(newBranchName)) {
-          p.cancel('Operation cancelled');
-          process.exit(0);
-        }
-
-        branchName = newBranchName as string;
-        baseBranch = currentBranch;
-        isNewBranch = true;
       } else {
         branchName = branchChoice as string;
         baseBranch = branchChoice as string;

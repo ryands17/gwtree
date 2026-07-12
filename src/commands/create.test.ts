@@ -112,23 +112,47 @@ describe('createWorktree', () => {
     ]);
   });
 
-  it('should create worktree with new branch', async () => {
+  it('should create worktree with new branch via from-branch when name does not exist', async () => {
     mockSpawnSync
+      // git rev-parse --show-toplevel
       .mockReturnValueOnce({
         success: true,
         stdout: Buffer.from('/home/user/repo\n'),
         stderr: Buffer.from(''),
       })
+      // git branch --show-current
       .mockReturnValueOnce({
         success: true,
         stdout: Buffer.from('main\n'),
         stderr: Buffer.from(''),
       })
+      // git branch --format
       .mockReturnValueOnce({
         success: true,
         stdout: Buffer.from('main\nfeature\n'),
         stderr: Buffer.from(''),
       })
+      // git worktree list --porcelain (checkWorktreeInUse, no conflict)
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(
+          'worktree /home/user/repo\nbranch refs/heads/main\n\n',
+        ),
+        stderr: Buffer.from(''),
+      })
+      // git fetch --all
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      })
+      // git branch -r --format (no match)
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('origin/main\norigin/feature\n'),
+        stderr: Buffer.from(''),
+      })
+      // git worktree add -b (new branch)
       .mockReturnValueOnce({
         success: true,
         stdout: Buffer.from(''),
@@ -136,7 +160,7 @@ describe('createWorktree', () => {
       });
 
     spyOn(p, 'select')
-      .mockResolvedValueOnce('new')
+      .mockResolvedValueOnce('from-branch')
       .mockResolvedValueOnce('none');
     spyOn(p, 'text')
       .mockResolvedValueOnce('new-feature')
@@ -145,49 +169,20 @@ describe('createWorktree', () => {
     await createWorktree();
 
     expect(p.intro).toHaveBeenCalledWith('Create Git Worktree');
-  });
 
-  it('should validate new branch name is required', async () => {
-    mockSpawnSync
-      .mockReturnValueOnce({
-        success: true,
-        stdout: Buffer.from('/home/user/repo\n'),
-        stderr: Buffer.from(''),
-      })
-      .mockReturnValueOnce({
-        success: true,
-        stdout: Buffer.from('main\n'),
-        stderr: Buffer.from(''),
-      })
-      .mockReturnValueOnce({
-        success: true,
-        stdout: Buffer.from('main\n'),
-        stderr: Buffer.from(''),
-      });
-
-    spyOn(p, 'select').mockResolvedValueOnce('new');
-
-    let branchValidateCalled = false;
-    spyOn(p, 'text').mockImplementation((opts: any) => {
-      if (opts.validate && opts.message === 'New branch name:') {
-        expect(opts.validate('')).toBe('Branch name is required');
-        branchValidateCalled = true;
-      }
-      return Promise.resolve('test-branch');
-    });
-
-    spyOn(p, 'isCancel').mockReturnValue(true);
-    const exitSpy = spyOn(process, 'exit').mockImplementation(
-      () => undefined as never,
+    const worktreeAddCall = mockSpawnSync.mock.calls.find(
+      (call: any) =>
+        Array.isArray(call[0]) &&
+        call[0][0] === 'git' &&
+        call[0][1] === 'worktree' &&
+        call[0][2] === 'add' &&
+        call[0][3] === '-b',
     );
-
-    await createWorktree();
-
-    expect(branchValidateCalled).toBe(true);
-    exitSpy.mockRestore();
+    expect(worktreeAddCall).toBeDefined();
+    expect(worktreeAddCall[0]).toContain('new-feature');
   });
 
-  it('should validate branch does not already exist', async () => {
+  it('should validate branch name is required for from-branch', async () => {
     mockSpawnSync
       .mockReturnValueOnce({
         success: true,
@@ -201,16 +196,16 @@ describe('createWorktree', () => {
       })
       .mockReturnValueOnce({
         success: true,
-        stdout: Buffer.from('main\nexisting\n'),
+        stdout: Buffer.from('main\n'),
         stderr: Buffer.from(''),
       });
 
-    spyOn(p, 'select').mockResolvedValueOnce('new');
+    spyOn(p, 'select').mockResolvedValueOnce('from-branch');
 
     let branchValidateCalled = false;
     spyOn(p, 'text').mockImplementation((opts: any) => {
-      if (opts.validate && opts.message === 'New branch name:') {
-        expect(opts.validate('existing')).toBe('Branch already exists');
+      if (opts.validate && opts.message === 'Branch name:') {
+        expect(opts.validate('')).toBe('Branch name is required');
         branchValidateCalled = true;
       }
       return Promise.resolve('test-branch');
@@ -461,7 +456,7 @@ describe('createWorktree', () => {
       });
 
     spyOn(p, 'select')
-      .mockResolvedValueOnce('existing')
+      .mockResolvedValueOnce('from-branch')
       .mockResolvedValueOnce('none');
     spyOn(p, 'text')
       .mockResolvedValueOnce('feature')
@@ -511,7 +506,7 @@ describe('createWorktree', () => {
         stderr: Buffer.from(''),
       });
 
-    spyOn(p, 'select').mockResolvedValueOnce('existing');
+    spyOn(p, 'select').mockResolvedValueOnce('from-branch');
     spyOn(p, 'text').mockResolvedValueOnce('feature');
 
     const exitSpy = spyOn(process, 'exit').mockImplementation(
@@ -575,7 +570,7 @@ describe('createWorktree', () => {
       });
 
     spyOn(p, 'select')
-      .mockResolvedValueOnce('existing')
+      .mockResolvedValueOnce('from-branch')
       .mockResolvedValueOnce('none');
     spyOn(p, 'text')
       .mockResolvedValueOnce('nonexistent-branch')
@@ -637,7 +632,7 @@ describe('createWorktree', () => {
       });
 
     spyOn(p, 'select')
-      .mockResolvedValueOnce('existing')
+      .mockResolvedValueOnce('from-branch')
       .mockResolvedValueOnce('none');
     spyOn(p, 'text')
       .mockResolvedValueOnce('feature/login')
@@ -700,7 +695,7 @@ describe('createWorktree', () => {
       });
 
     spyOn(p, 'select')
-      .mockResolvedValueOnce('existing')
+      .mockResolvedValueOnce('from-branch')
       .mockResolvedValueOnce('none');
     spyOn(p, 'text')
       .mockResolvedValueOnce('feature/team/login')

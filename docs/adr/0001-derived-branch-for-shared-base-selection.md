@@ -1,0 +1,3 @@
+# Derived branch when selecting a shared base branch directly
+
+When the interactive `create` flow lets a user pick a base branch (e.g. `main`) directly instead of naming a new branch, gwtree does not check that branch out into the worktree — git forbids the same branch being checked out in two worktrees at once, and main is almost always already checked out in the primary worktree. Instead, gwtree creates a new branch named `{branch}-{worktreeName}` off of that base branch and checks that out. The alternative (erroring out and forcing the user to type a branch name) was rejected to keep the fast-path prompt flow to a single selection.
