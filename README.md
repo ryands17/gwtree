@@ -72,30 +72,28 @@ All commands support CLI flags for scripting, CI, and automation. When sufficien
 #### Create
 
 ```bash
-# Fully non-interactive
-gwtree create --branch main --suffix 2 --no-editor
-
 # Existing branch, direct checkout
 gwtree create --branch feat-login --suffix 1 --no-editor
 
-# New branch, open in VS Code
-gwtree create --branch feat-login --new-branch --suffix 1 --editor code
+# New branch (doesn't exist yet), created off current branch, open in VS Code
+gwtree create --branch feat-login-v2 --suffix 1 --editor code
 
 # Custom worktree name
-gwtree create --branch main --name my-worktree --no-editor
+gwtree create --branch feat-login --name my-worktree --no-editor
 
 # Partial flags — prompts only for missing values
-gwtree create --branch main
+gwtree create --branch feat-login
 ```
 
 | Flag                | Description                                                |
 | ------------------- | ---------------------------------------------------------- |
 | `--branch <name>`   | Branch to checkout directly (if exists) or create (if not) |
-| `--new-branch`      | Create the branch instead of using existing                |
 | `--name <name>`     | Worktree directory name (skips pattern)                    |
 | `--suffix <suffix>` | Suffix for name pattern (uses config `namePattern`)        |
 | `--editor <editor>` | Editor to open: `code` \| `default` \| `none`              |
 | `--no-editor`       | Shorthand for `--editor none`                              |
+
+> `--branch` errors if the branch is already checked out in another worktree (e.g. `main` in the primary worktree). Use the interactive `main`/`master` quick-pick for that case — it creates a new branch off it instead.
 
 #### List
 

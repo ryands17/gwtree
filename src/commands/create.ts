@@ -11,10 +11,66 @@ import {
 
 export interface CreateOptions {
   branch?: string;
-  newBranch?: boolean;
   name?: string;
   suffix?: string;
   editor?: string | false;
+}
+
+interface ResolvedBranch {
+  branchName: string;
+  baseBranch: string;
+  isNewBranch: boolean;
+  isDirectCheckout: boolean;
+}
+
+async function resolveBranchByName(
+  name: string,
+  gitRoot: string,
+  branches: string[],
+  currentBranch: string,
+  interactive: boolean,
+): Promise<ResolvedBranch> {
+  const inUse = checkWorktreeInUse(name, gitRoot);
+  if (inUse) {
+    const msg = `Worktree already exists for branch ${name} (${inUse})`;
+    if (interactive) p.cancel(msg);
+    else console.error(`Error: ${msg}`);
+    process.exit(1);
+  }
+
+  const fetchSpinner = interactive ? p.spinner() : null;
+  fetchSpinner?.start('Fetching branches...');
+  Bun.spawnSync(['git', 'fetch', '--all'], { cwd: gitRoot });
+  fetchSpinner?.stop('Fetched');
+
+  const remoteBranchesResult = Bun.spawnSync(
+    ['git', 'branch', '-r', '--format=%(refname:short)'],
+    { cwd: gitRoot },
+  );
+  const remoteBranches = remoteBranchesResult.stdout
+    .toString()
+    .trim()
+    .split('\n')
+    .filter(Boolean);
+
+  const existsLocally = branches.includes(name);
+  const existsRemotely = remoteBranches.some((rb) => rb === `origin/${name}`);
+
+  if (existsLocally || existsRemotely) {
+    return {
+      branchName: name,
+      baseBranch: name,
+      isNewBranch: false,
+      isDirectCheckout: true,
+    };
+  }
+
+  return {
+    branchName: name,
+    baseBranch: currentBranch,
+    isNewBranch: true,
+    isDirectCheckout: false,
+  };
 }
 
 export async function createWorktree(options: CreateOptions = {}) {
@@ -58,25 +114,14 @@ export async function createWorktree(options: CreateOptions = {}) {
     let isDirectCheckout = false;
 
     if (options.branch) {
-      const branchExists = branches.includes(options.branch);
-      if (branchExists && !options.newBranch) {
-        const inUse = checkWorktreeInUse(options.branch, gitRoot);
-        if (inUse) {
-          const msg = `Worktree already exists for branch ${options.branch} (${inUse})`;
-          if (interactive) p.cancel(msg);
-          else console.error(`Error: ${msg}`);
-          process.exit(1);
-        }
-        Bun.spawnSync(['git', 'fetch', '--all'], { cwd: gitRoot });
-        branchName = options.branch;
-        baseBranch = options.branch;
-        isNewBranch = false;
-        isDirectCheckout = true;
-      } else {
-        branchName = options.branch;
-        isNewBranch = !!options.newBranch || !branchExists;
-        baseBranch = isNewBranch ? currentBranch : options.branch;
-      }
+      ({ branchName, baseBranch, isNewBranch, isDirectCheckout } =
+        await resolveBranchByName(
+          options.branch,
+          gitRoot,
+          branches,
+          currentBranch,
+          interactive,
+        ));
     } else {
       const branchChoice = await p.select({
         message: 'Branch:',
@@ -111,42 +156,14 @@ export async function createWorktree(options: CreateOptions = {}) {
 
         const name = enteredBranchName as string;
 
-        const inUse = checkWorktreeInUse(name, gitRoot);
-        if (inUse) {
-          p.cancel(`Worktree already exists for branch ${name} (${inUse})`);
-          process.exit(1);
-        }
-
-        const fetchSpinner = p.spinner();
-        fetchSpinner.start('Fetching branches...');
-        Bun.spawnSync(['git', 'fetch', '--all'], { cwd: gitRoot });
-        fetchSpinner.stop('Fetched');
-
-        const remoteBranchesResult = Bun.spawnSync(
-          ['git', 'branch', '-r', '--format=%(refname:short)'],
-          { cwd: gitRoot },
-        );
-        const remoteBranches = remoteBranchesResult.stdout
-          .toString()
-          .trim()
-          .split('\n')
-          .filter(Boolean);
-
-        const existsLocally = branches.includes(name);
-        const existsRemotely = remoteBranches.some(
-          (rb) => rb === `origin/${name}`,
-        );
-
-        if (existsLocally || existsRemotely) {
-          branchName = name;
-          baseBranch = name;
-          isNewBranch = false;
-          isDirectCheckout = true;
-        } else {
-          branchName = name;
-          baseBranch = currentBranch;
-          isNewBranch = true;
-        }
+        ({ branchName, baseBranch, isNewBranch, isDirectCheckout } =
+          await resolveBranchByName(
+            name,
+            gitRoot,
+            branches,
+            currentBranch,
+            interactive,
+          ));
       } else {
         branchName = branchChoice as string;
         baseBranch = branchChoice as string;

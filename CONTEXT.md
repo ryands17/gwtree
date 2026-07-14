@@ -25,8 +25,8 @@ The branch a new or derived branch is created from. Defaults to the current bran
 _Avoid_: Source branch, parent branch
 
 **From Branch**:
-The interactive menu option where the user types a single branch name; gwtree resolves it into either a Direct Checkout (branch exists, local or remote) or a New Branch (branch doesn't exist, created off the Base Branch). Errors out if the branch exists but is already checked out in another worktree. Replaces the old separate "Use existing branch" / "Create new branch" menu entries; the quick-pick Base Branch entry (e.g. `main`) is unaffected and keeps its Derived Branch behavior.
-_Avoid_: Use existing branch, Create new branch
+The branch resolution used when the user names a single branch directly — via the interactive menu's free-text entry, or the `--branch` CLI flag. gwtree resolves the name into either a Direct Checkout (branch exists, local or remote) or a New Branch (branch doesn't exist, created off the Base Branch). Errors out if the branch exists but is already checked out in another worktree, even via `--branch` (see [ADR 0002](./docs/adr/0002-branch-flag-errors-on-in-use-branch.md)). Replaces the old separate "Use existing branch" / "Create new branch" menu entries and the old `--new-branch` CLI flag; the quick-pick Base Branch entry (e.g. `main`) is unaffected and keeps its Derived Branch behavior.
+_Avoid_: Use existing branch, Create new branch, --new-branch
 
 **Direct Checkout**:
 Outcome of From Branch where an existing branch (local or remote) is checked out into the new worktree unmodified — no new branch is created. Blocked if that branch is already checked out in another worktree.

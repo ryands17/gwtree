@@ -32,7 +32,6 @@ program
   .command('create', { isDefault: true })
   .description('Create a new git worktree')
   .option('--branch <name>', 'Branch to use (existing) or create (new)')
-  .option('--new-branch', 'Create the branch instead of using existing')
   .option('--name <name>', 'Worktree directory name (skips pattern)')
   .option('--suffix <suffix>', 'Suffix for name pattern')
   .option('--editor <editor>', 'Editor to open: code | default | none')

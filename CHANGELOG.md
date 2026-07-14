@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-07-15
+
+### Changed
+
+- **Breaking:** Removed the `--new-branch` flag. `--branch` now always resolves the same way the interactive "From Branch" prompt does: checks out the branch if it exists (local or remote), otherwise creates it off the current branch.
+
+### Fixed
+
+- `--branch` now correctly detects remote-only branches. Previously it only checked local branches, which could create a diverging local branch instead of checking out the existing remote one.
+
 ## [1.0.0] - 2025-12-01
 
 ### Added

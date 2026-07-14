@@ -828,4 +828,242 @@ describe('createWorktree', () => {
       expect.any(Object),
     );
   });
+
+  it('should direct-checkout an existing local branch via --branch (non-interactive)', async () => {
+    mockSpawnSync
+      // git rev-parse --show-toplevel
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('/home/user/repo\n'),
+        stderr: Buffer.from(''),
+      })
+      // git branch --show-current
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      })
+      // git branch --format
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\nfeature\n'),
+        stderr: Buffer.from(''),
+      })
+      // git worktree list --porcelain (checkWorktreeInUse, no conflict)
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(
+          'worktree /home/user/repo\nbranch refs/heads/main\n\n',
+        ),
+        stderr: Buffer.from(''),
+      })
+      // git fetch --all
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      })
+      // git branch -r --format
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('origin/main\norigin/feature\n'),
+        stderr: Buffer.from(''),
+      })
+      // git worktree add (direct checkout)
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      });
+
+    await createWorktree({ branch: 'feature', name: 'my-wt', editor: false });
+
+    const worktreeAddCall = mockSpawnSync.mock.calls.find(
+      (call: any) =>
+        Array.isArray(call[0]) &&
+        call[0][0] === 'git' &&
+        call[0][1] === 'worktree' &&
+        call[0][2] === 'add' &&
+        !call[0].includes('-b'),
+    );
+    expect(worktreeAddCall).toBeDefined();
+    expect(worktreeAddCall[0]).toContain('feature');
+  });
+
+  it('should direct-checkout a remote-only branch via --branch (non-interactive)', async () => {
+    mockSpawnSync
+      // git rev-parse --show-toplevel
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('/home/user/repo\n'),
+        stderr: Buffer.from(''),
+      })
+      // git branch --show-current
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      })
+      // git branch --format (local only, no remote-topic)
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      })
+      // git worktree list --porcelain (checkWorktreeInUse, no conflict)
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(
+          'worktree /home/user/repo\nbranch refs/heads/main\n\n',
+        ),
+        stderr: Buffer.from(''),
+      })
+      // git fetch --all
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      })
+      // git branch -r --format (remote-only match)
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('origin/main\norigin/remote-topic\n'),
+        stderr: Buffer.from(''),
+      })
+      // git worktree add (direct checkout)
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      });
+
+    await createWorktree({
+      branch: 'remote-topic',
+      name: 'my-wt2',
+      editor: false,
+    });
+
+    const worktreeAddCall = mockSpawnSync.mock.calls.find(
+      (call: any) =>
+        Array.isArray(call[0]) &&
+        call[0][0] === 'git' &&
+        call[0][1] === 'worktree' &&
+        call[0][2] === 'add' &&
+        !call[0].includes('-b'),
+    );
+    expect(worktreeAddCall).toBeDefined();
+    expect(worktreeAddCall[0]).toContain('remote-topic');
+  });
+
+  it('should create a new branch off current when --branch names a brand-new branch', async () => {
+    mockSpawnSync
+      // git rev-parse --show-toplevel
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('/home/user/repo\n'),
+        stderr: Buffer.from(''),
+      })
+      // git branch --show-current
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      })
+      // git branch --format
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      })
+      // git worktree list --porcelain (checkWorktreeInUse, no conflict)
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(
+          'worktree /home/user/repo\nbranch refs/heads/main\n\n',
+        ),
+        stderr: Buffer.from(''),
+      })
+      // git fetch --all
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      })
+      // git branch -r --format (no match)
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('origin/main\n'),
+        stderr: Buffer.from(''),
+      })
+      // git worktree add -b (new branch)
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+      });
+
+    await createWorktree({
+      branch: 'new-topic',
+      name: 'my-wt3',
+      editor: false,
+    });
+
+    const worktreeAddCall = mockSpawnSync.mock.calls.find(
+      (call: any) =>
+        Array.isArray(call[0]) &&
+        call[0][0] === 'git' &&
+        call[0][1] === 'worktree' &&
+        call[0][2] === 'add' &&
+        call[0][3] === '-b',
+    );
+    expect(worktreeAddCall).toBeDefined();
+    expect(worktreeAddCall[0]).toContain('new-topic');
+    expect(worktreeAddCall[0]).toContain('main');
+  });
+
+  it('should error via --branch when the named branch is already checked out elsewhere', async () => {
+    mockSpawnSync
+      // git rev-parse --show-toplevel
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('/home/user/repo\n'),
+        stderr: Buffer.from(''),
+      })
+      // git branch --show-current
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\n'),
+        stderr: Buffer.from(''),
+      })
+      // git branch --format
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from('main\nfeature\n'),
+        stderr: Buffer.from(''),
+      })
+      // git worktree list --porcelain (branch in use)
+      .mockReturnValueOnce({
+        success: true,
+        stdout: Buffer.from(
+          'worktree /home/user/repo\nbranch refs/heads/main\n\nworktree /home/user/repo-feature-wt\nbranch refs/heads/feature\n\n',
+        ),
+        stderr: Buffer.from(''),
+      });
+
+    const exitSpy = spyOn(process, 'exit').mockImplementation(
+      () => undefined as never,
+    );
+    const consoleErrorSpy = spyOn(console, 'error').mockImplementation(
+      () => {},
+    );
+
+    await createWorktree({ branch: 'feature', name: 'my-wt4', editor: false });
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Worktree already exists for branch feature'),
+    );
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    exitSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
 });

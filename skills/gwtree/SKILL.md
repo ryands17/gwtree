@@ -13,31 +13,29 @@ description: Use when user asks to create, list, or remove git worktrees, or set
 gwtree create [flags]
 ```
 
-| Flag                | Description                                                                                   |
-| ------------------- | --------------------------------------------------------------------------------------------- |
-| `--branch <name>`   | Branch to checkout directly (if exists) or create (if not). **Required for non-interactive.** |
-| `--new-branch`      | Force-create the branch even if it exists                                                     |
-| `--name <name>`     | Full worktree directory name (skips name pattern)                                             |
-| `--suffix <suffix>` | Suffix appended to auto-generated name                                                        |
-| `--editor <editor>` | Open after create: `code`, `default` (uses `$EDITOR`), or `none`                              |
-| `--no-editor`       | Do not open any editor                                                                        |
+| Flag                | Description                                                                                                                       |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--branch <name>`   | Branch to checkout directly (if exists, local or remote) or create off current branch (if not). **Required for non-interactive.** |
+| `--name <name>`     | Full worktree directory name (skips name pattern)                                                                                 |
+| `--suffix <suffix>` | Suffix appended to auto-generated name                                                                                            |
+| `--editor <editor>` | Open after create: `code`, `default` (uses `$EDITOR`), or `none`                                                                  |
+| `--no-editor`       | Do not open any editor                                                                                                            |
 
 **Non-interactive requires:** `--branch` + (`--name` OR `--suffix`) + (`--editor`/`--no-editor`)
+
+`--branch` errors if the branch is already checked out in another worktree — e.g. `--branch main` fails because `main` is almost always checked out in the primary worktree. For that case use the interactive `main`/`master` quick-pick instead, which creates a new branch off it.
 
 ### Examples
 
 ```bash
-# New branch, VS Code, fully non-interactive
-gwtree create --branch feat/auth --new-branch --suffix 1 --editor code
+# New branch (doesn't exist yet), VS Code, fully non-interactive
+gwtree create --branch feat/auth --suffix 1 --editor code
 
 # Existing branch, direct checkout (no new branch created)
 gwtree create --branch feat-login --suffix 1 --no-editor
 
-# Existing branch (main), derived branch
-gwtree create --branch main --suffix review --no-editor
-
 # Custom full name
-gwtree create --branch feat/auth --new-branch --name myrepo-auth-wt --no-editor
+gwtree create --branch feat/auth --name myrepo-auth-wt --no-editor
 
 # Partial flags — falls through to interactive for missing parts
 gwtree create --branch feat/auth
@@ -98,7 +96,7 @@ gwtree remove
 
 ```bash
 # Create worktree for a ticket, open in VS Code
-gwtree create --branch feat/TICKET-123 --new-branch --suffix wt --editor code
+gwtree create --branch feat/TICKET-123 --suffix wt --editor code
 
 # Create worktree for code review (no editor)
 gwtree create --branch pr/456 --suffix review --no-editor
